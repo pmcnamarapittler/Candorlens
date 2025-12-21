@@ -1,0 +1,60 @@
+{
+  "high_level_categories": [
+    "Nagging",
+    "Obstruction",
+    "Sneaking",
+    "Interface Interference",
+    "Forced Action",
+    "Social Proof",
+    "Urgency",
+    "Scarcity"
+  ],
+
+  "mid_level_labels": {
+    "Nagging": [
+      "Repeated interruptions",
+      "Upgrade pressure",
+      "Notification pressure",
+      "Review/rating pressure"
+    ],
+    "Obstruction": [
+      "Hard-to-cancel",
+      "Hidden exit paths",
+      "Complex navigation",
+      "Friction added to user choice"
+    ],
+    "Sneaking": [
+      "Hidden information",
+      "Auto-added items",
+      "Drip pricing",
+      "Preselected add-ons"
+    ],
+    "Interface Interference": [
+      "Visual deception",
+      "Misleading layout",
+      "Attention misdirection",
+      "Lookalike UI"
+    ],
+    "Forced Action": [
+      "Forced registration",
+      "Forced sharing",
+      "Forced upgrades",
+      "Forced disclosure"
+    ],
+    "Social Proof": [
+      "Fake activity indicators",
+      "Simulated popularity",
+      "Social pressure copy"
+    ],
+    "Urgency": [
+      "Countdown timers",
+      "Artificial deadlines",
+      "Time scarcity framing"
+    ],
+    "Scarcity": [
+      "Limited quantity claims",
+      "Low-stock warnings",
+      "“Only X left” patterns"
+    ]
+  }
+}

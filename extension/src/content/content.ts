@@ -1,0 +1,1 @@
+console.log("CandorLens content script loaded.");

@@ -1,0 +1,87 @@
+################################
+# OS
+################################
+.DS_Store
+
+################################
+# Python
+################################
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+################################
+# Virtual environments / env files
+################################
+venv/
+venv*/
+.venv/
+.env
+.env.*
+*.env
+
+################################
+# Node / frontend
+################################
+node_modules/
+dist/
+build/
+
+################################
+# Logs
+################################
+*.log
+logs/
+
+################################
+# Keys, certs, credentials (NEVER COMMIT)
+################################
+*.pem
+*.key
+*.p12
+*.crt
+
+################################
+# Azure-specific (belt + suspenders)
+################################
+azure.yaml
+azure.json
+local.settings.json
+*.azure
+*.azconfig
+
+################################
+# Data (private by default)
+################################
+labelstudio_export*.json
+data/raw/
+data/exports/
+ml/data/
+
+################################
+# ML model artifacts (private by default)
+################################
+ml/models/*.pt
+ml/models/*.pth
+ml/models/*.onnx
+ml/models/*.ckpt
+ml/models/*.h5
+ml/models/*.tflite
+
+################################
+# Notebooks
+################################
+notebooks/.ipynb_checkpoints/
+
+################################
+# Editor settings
+################################
+.vscode/
+.idea/
+
+################################
+# Misc
+################################
+.cache/
+.tmp/

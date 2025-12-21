@@ -1,0 +1,4 @@
+[
+  { "id": "BENIGN", "name": "Benign (no dark pattern)" },
+  { "id": "FRC_FORCED_ACTION", "name": "Forced Action" }
+]
