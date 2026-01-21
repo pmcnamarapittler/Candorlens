@@ -1,60 +1,59 @@
-{
-  "high_level_categories": [
-    "Nagging",
-    "Obstruction",
-    "Sneaking",
-    "Interface Interference",
-    "Forced Action",
-    "Social Proof",
-    "Urgency",
-    "Scarcity"
-  ],
-
-  "mid_level_labels": {
-    "Nagging": [
-      "Repeated interruptions",
-      "Upgrade pressure",
-      "Notification pressure",
-      "Review/rating pressure"
-    ],
-    "Obstruction": [
-      "Hard-to-cancel",
-      "Hidden exit paths",
-      "Complex navigation",
-      "Friction added to user choice"
-    ],
-    "Sneaking": [
-      "Hidden information",
-      "Auto-added items",
-      "Drip pricing",
-      "Preselected add-ons"
-    ],
-    "Interface Interference": [
-      "Visual deception",
-      "Misleading layout",
-      "Attention misdirection",
-      "Lookalike UI"
-    ],
-    "Forced Action": [
-      "Forced registration",
-      "Forced sharing",
-      "Forced upgrades",
-      "Forced disclosure"
-    ],
-    "Social Proof": [
-      "Fake activity indicators",
-      "Simulated popularity",
-      "Social pressure copy"
-    ],
-    "Urgency": [
-      "Countdown timers",
-      "Artificial deadlines",
-      "Time scarcity framing"
-    ],
-    "Scarcity": [
-      "Limited quantity claims",
-      "Low-stock warnings",
-      "“Only X left” patterns"
-    ]
-  }
-}
+[
+  { "id": "BENIGN", "name": "Benign (no dark pattern)", "category": null },
+  
+  { "id": "NAG-01", "name": "Repeated Interruptions", "category": "Nagging" },
+  { "id": "NAG-02", "name": "Persistent Upgrade Prompts", "category": "Nagging" },
+  { "id": "NAG-03", "name": "Rating/Review Harassment", "category": "Nagging" },
+  { "id": "NAG-04", "name": "Reminder Overload", "category": "Nagging" },
+  
+  { "id": "OBS-01", "name": "Multi-Step Cancellation Maze", "category": "Obstruction" },
+  { "id": "OBS-02", "name": "Hidden Opt-Out", "category": "Obstruction" },
+  { "id": "OBS-03", "name": "Confirmshaming", "category": "Obstruction" },
+  { "id": "OBS-04", "name": "Forced Navigation Detours", "category": "Obstruction" },
+  { "id": "OBS-05", "name": "Preselected/Forced Defaults", "category": "Obstruction" },
+  { "id": "OBS-06", "name": "Slow-Down Tactics", "category": "Obstruction" },
+  { "id": "OBS-07", "name": "Data Walls", "category": "Obstruction" },
+  { "id": "OBS-08", "name": "Complex Navigation", "category": "Obstruction" },
+  
+  { "id": "SNK-01", "name": "Hidden Fees", "category": "Sneaking" },
+  { "id": "SNK-02", "name": "Drip Pricing", "category": "Sneaking" },
+  { "id": "SNK-03", "name": "Disguised Ads", "category": "Sneaking" },
+  { "id": "SNK-04", "name": "Disguised Buttons", "category": "Sneaking" },
+  { "id": "SNK-05", "name": "Auto-Add to Cart", "category": "Sneaking" },
+  { "id": "SNK-06", "name": "Ghost Charges", "category": "Sneaking" },
+  { "id": "SNK-07", "name": "Sneaky Email Subscriptions", "category": "Sneaking" },
+  { "id": "SNK-08", "name": "Masked Choices", "category": "Sneaking" },
+  
+  { "id": "INT-01", "name": "Visual Noise Overload", "category": "Interface Interference" },
+  { "id": "INT-02", "name": "Misleading Contrast", "category": "Interface Interference" },
+  { "id": "INT-03", "name": "Hidden Buttons", "category": "Interface Interference" },
+  { "id": "INT-04", "name": "Moving Buttons", "category": "Interface Interference" },
+  { "id": "INT-05", "name": "Bait Contrast", "category": "Interface Interference" },
+  { "id": "INT-06", "name": "Confusing Hierarchy", "category": "Interface Interference" },
+  { "id": "INT-07", "name": "Layout Sabotage", "category": "Interface Interference" },
+  { "id": "INT-08", "name": "Obstruction UI", "category": "Interface Interference" },
+  
+  { "id": "FA-01", "name": "Forced Registration", "category": "Forced Action" },
+  { "id": "FA-02", "name": "Forced Data Sharing", "category": "Forced Action" },
+  { "id": "FA-03", "name": "Impossible-to-Decline", "category": "Forced Action" },
+  { "id": "FA-04", "name": "Forced Continuation", "category": "Forced Action" },
+  { "id": "FA-05", "name": "Forced Subscription Start", "category": "Forced Action" },
+  { "id": "FA-06", "name": "Gated Access", "category": "Forced Action" },
+  { "id": "FA-07", "name": "Mandatory Add-ons", "category": "Forced Action" },
+  
+  { "id": "SP-01", "name": "Fake Reviews", "category": "Social Proof" },
+  { "id": "SP-02", "name": "Fake Activity Counters", "category": "Social Proof" },
+  { "id": "SP-03", "name": "Fake Scarcity from Social Cues", "category": "Social Proof" },
+  { "id": "SP-04", "name": "Manipulated Testimonials", "category": "Social Proof" },
+  { "id": "SP-05", "name": "Social Pressure UI", "category": "Social Proof" },
+  
+  { "id": "UR-01", "name": "Fake Countdown Timer", "category": "Urgency" },
+  { "id": "UR-02", "name": "Exaggerated Deadline", "category": "Urgency" },
+  { "id": "UR-03", "name": "Fake Limited-Time Bonuses", "category": "Urgency" },
+  { "id": "UR-04", "name": "Fabricated Time Pressure", "category": "Urgency" },
+  
+  { "id": "SC-01", "name": "Fake Low Stock Claims", "category": "Scarcity" },
+  { "id": "SC-02", "name": "Fake Limited Availability (Digital)", "category": "Scarcity" },
+  { "id": "SC-03", "name": "Artificial Constraints on Choice", "category": "Scarcity" },
+  { "id": "SC-04", "name": "Fake Waitlists", "category": "Scarcity" }
+]
