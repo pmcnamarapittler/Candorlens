@@ -1,0 +1,118 @@
+<View>
+  <Header value="CandorLens Dark Pattern Annotation"/>
+  
+  <Image name="image" value="$image"/>
+  
+  <Header value="Step 1: Is this a dark pattern?"/>
+  <Choices name="is_dark_pattern" toName="image" choice="single" required="true">
+    <Choice value="BENIGN" hint="No dark patterns detected"/>
+    <Choice value="DARK_PATTERN" hint="One or more dark patterns present"/>
+    <Choice value="UNUSABLE" hint="Image is unclear, cropped, or cannot be annotated"/>
+  </Choices>
+  
+  <Header value="Step 2: Select all dark patterns present (if applicable)" visibleWhen="choice-selected" whenTagName="is_dark_pattern" whenChoiceValue="DARK_PATTERN"/>
+  
+  <View visibleWhen="choice-selected" whenTagName="is_dark_pattern" whenChoiceValue="DARK_PATTERN">
+    
+    <Collapse title="Nagging (NAG) - Repeated interruptions/pressure">
+      <Choices name="nagging" toName="image" choice="multiple">
+        <Choice value="NAG-01" hint="Repeated Interruptions - Same popup shown multiple times after dismissal"/>
+        <Choice value="NAG-02" hint="Persistent Upgrade Prompts - Constant reminders to upgrade to paid"/>
+        <Choice value="NAG-03" hint="Rating/Review Harassment - Repeated prompts to rate the app"/>
+        <Choice value="NAG-04" hint="Reminder Overload - Excessive email/notification reminders"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Obstruction (OBS) - Making actions difficult">
+      <Choices name="obstruction" toName="image" choice="multiple">
+        <Choice value="OBS-01" hint="Multi-Step Cancellation - Too many steps to cancel"/>
+        <Choice value="OBS-02" hint="Hidden Opt-Out - Opt-out buried or hard to find"/>
+        <Choice value="OBS-03" hint="Confirmshaming - Guilt-trip language on decline button"/>
+        <Choice value="OBS-04" hint="Forced Navigation Detours - Redirected to irrelevant pages"/>
+        <Choice value="OBS-05" hint="Preselected Defaults - Options pre-checked by default"/>
+        <Choice value="OBS-06" hint="Slow-Down Tactics - Artificial delays or timers"/>
+        <Choice value="OBS-07" hint="Data Walls - Blocked until personal info provided"/>
+        <Choice value="OBS-08" hint="Complex Navigation - Intentionally confusing layout"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Sneaking (SNK) - Hiding information">
+      <Choices name="sneaking" toName="image" choice="multiple">
+        <Choice value="SNK-01" hint="Hidden Fees - Fees revealed late in checkout"/>
+        <Choice value="SNK-02" hint="Drip Pricing - Price revealed piece by piece"/>
+        <Choice value="SNK-03" hint="Disguised Ads - Ads that look like content"/>
+        <Choice value="SNK-04" hint="Disguised Buttons - Deceptive button styling"/>
+        <Choice value="SNK-05" hint="Auto-Add to Cart - Items added without consent"/>
+        <Choice value="SNK-06" hint="Ghost Charges - Undisclosed auto-billing"/>
+        <Choice value="SNK-07" hint="Sneaky Email Subscriptions - Pre-checked newsletter"/>
+        <Choice value="SNK-08" hint="Masked Choices - Hidden consequences of actions"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Interface Interference (INT) - Visual manipulation">
+      <Choices name="interface" toName="image" choice="multiple">
+        <Choice value="INT-01" hint="Visual Noise - Too many competing elements"/>
+        <Choice value="INT-02" hint="Misleading Contrast - Accept bright, decline dim"/>
+        <Choice value="INT-03" hint="Hidden Buttons - Close/decline hard to see"/>
+        <Choice value="INT-04" hint="Moving Buttons - Buttons that shift position"/>
+        <Choice value="INT-05" hint="Bait Contrast - Wrong action highlighted"/>
+        <Choice value="INT-06" hint="Confusing Hierarchy - Unclear what to click"/>
+        <Choice value="INT-07" hint="Layout Sabotage - Important options buried"/>
+        <Choice value="INT-08" hint="Obstruction UI - Popups blocking alternatives"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Forced Action (FA) - Blocking until action taken">
+      <Choices name="forced" toName="image" choice="multiple">
+        <Choice value="FA-01" hint="Forced Registration - Must create account to proceed"/>
+        <Choice value="FA-02" hint="Forced Data Sharing - Must provide unnecessary data"/>
+        <Choice value="FA-03" hint="Impossible-to-Decline - No way to say no"/>
+        <Choice value="FA-04" hint="Forced Continuation - Can't skip upsells/tours"/>
+        <Choice value="FA-05" hint="Forced Subscription Start - Must start trial"/>
+        <Choice value="FA-06" hint="Gated Access - Core features locked"/>
+        <Choice value="FA-07" hint="Mandatory Add-ons - Can't buy without extras"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Social Proof (SP) - Fake popularity signals">
+      <Choices name="social" toName="image" choice="multiple">
+        <Choice value="SP-01" hint="Fake Reviews - Fabricated or cherry-picked reviews"/>
+        <Choice value="SP-02" hint="Fake Activity Counters - '50 people viewing this!'"/>
+        <Choice value="SP-03" hint="Fake Scarcity from Social - 'Someone just bought this'"/>
+        <Choice value="SP-04" hint="Manipulated Testimonials - Scripted success stories"/>
+        <Choice value="SP-05" hint="Social Pressure UI - 'Join 200,000 users!'"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Urgency (UR) - Fake time pressure">
+      <Choices name="urgency" toName="image" choice="multiple">
+        <Choice value="UR-01" hint="Fake Countdown Timer - Timer that resets"/>
+        <Choice value="UR-02" hint="Exaggerated Deadline - 'Offer ends today!' (every day)"/>
+        <Choice value="UR-03" hint="Fake Limited-Time Bonuses - Always-available 'bonuses'"/>
+        <Choice value="UR-04" hint="Fabricated Time Pressure - Vague urgency language"/>
+      </Choices>
+    </Collapse>
+    
+    <Collapse title="Scarcity (SC) - Fake limited availability">
+      <Choices name="scarcity" toName="image" choice="multiple">
+        <Choice value="SC-01" hint="Fake Low Stock - 'Only 2 left!' (not true)"/>
+        <Choice value="SC-02" hint="Fake Limited Availability - Digital products with 'limited seats'"/>
+        <Choice value="SC-03" hint="Artificial Constraints - Options hidden to push premium"/>
+        <Choice value="SC-04" hint="Fake Waitlists - Instant approval after 'waitlist'"/>
+      </Choices>
+    </Collapse>
+    
+  </View>
+  
+  <Header value="Step 3: Draw bounding boxes around dark pattern elements (optional but helpful)" visibleWhen="choice-selected" whenTagName="is_dark_pattern" whenChoiceValue="DARK_PATTERN"/>
+  
+  <View visibleWhen="choice-selected" whenTagName="is_dark_pattern" whenChoiceValue="DARK_PATTERN">
+    <RectangleLabels name="bbox" toName="image">
+      <Label value="dark_pattern_element" background="#ff0000"/>
+    </RectangleLabels>
+  </View>
+  
+  <Header value="Notes (optional)"/>
+  <TextArea name="notes" toName="image" placeholder="Any notes about this annotation..." rows="2"/>
+  
+</View>
