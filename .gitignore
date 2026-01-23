@@ -85,3 +85,6 @@ notebooks/.ipynb_checkpoints/
 ################################
 .cache/
 .tmp/
+ml/data/flows/*/step_*.png
+ml/models/*.pt
+.DS_Store

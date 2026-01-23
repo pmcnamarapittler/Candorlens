@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CandorLens LanguageEvent",
+  "description": "A single instance of social-engineering language at commitment proximity",
+  "type": "object",
+  "required": [
+    "event_id",
+    "text",
+    "attack_class",
+    "confidence",
+    "commitment_stage",
+    "commitment_type",
+    "coercion_vector",
+    "flow_step",
+    "flow_id",
+    "rationale",
+    "source"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[0-9]{8}_[0-9]{3}$",
+      "description": "Unique identifier: evt_YYYYMMDD_NNN"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact text being flagged (copy-paste)"
+    },
+    "attack_class": {
+      "enum": ["forced_continuity", "false_urgency", "fear_based_threat"],
+      "description": "Primary attack classification"
+    },
+    "confidence": {
+      "enum": ["HIGH", "MEDIUM", "LOW"],
+      "description": "Labeler confidence level"
+    },
+    "commitment_stage": {
+      "enum": ["pre_commit", "commit", "post_commit"],
+      "description": "Where in the decision journey"
+    },
+    "commitment_type": {
+      "enum": ["financial", "account_access", "data_sharing", "subscription_enrollment"],
+      "description": "What kind of commitment"
+    },
+    "coercion_vector": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "temporal_pressure",
+          "authority_claim",
+          "threat_of_loss",
+          "cost_obfuscation",
+          "ambiguous_action_label",
+          "urgency_without_basis"
+        ]
+      },
+      "minItems": 1,
+      "description": "Manipulation mechanism(s) - select all that apply"
+    },
+    "risk_outcome": {
+      "type": "string",
+      "description": "What harm could result"
+    },
+    "evidence_type": {
+      "enum": [
+        "cta_label",
+        "headline",
+        "body_copy",
+        "modal_text",
+        "form_label",
+        "toast_notification",
+        "email_subject",
+        "email_body"
+      ],
+      "description": "Where the text appears in the UI"
+    },
+    "flow_step": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Step index in the flow (0-indexed)"
+    },
+    "flow_id": {
+      "type": "string",
+      "description": "Parent flow identifier"
+    },
+    "jurisdiction_mapping": {
+      "type": "array",
+      "items": {
+        "enum": ["FTC_Act_Section_5", "ROSCA", "CPRA_Dark_Pattern"]
+      },
+      "description": "Applicable regulatory categories"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Explanation of WHY this is manipulative"
+    },
+    "source": {
+      "enum": ["manual_label", "model_prediction"],
+      "description": "How this label was created"
+    }
+  }
+}
