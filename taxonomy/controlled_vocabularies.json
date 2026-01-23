@@ -1,0 +1,46 @@
+{
+  "attack_class": [
+    "forced_continuity",
+    "false_urgency",
+    "fear_based_threat"
+  ],
+  "commitment_stage": [
+    "pre_commit",
+    "commit",
+    "post_commit"
+  ],
+  "commitment_type": [
+    "financial",
+    "account_access",
+    "data_sharing",
+    "subscription_enrollment"
+  ],
+  "coercion_vector": [
+    "temporal_pressure",
+    "authority_claim",
+    "threat_of_loss",
+    "cost_obfuscation",
+    "ambiguous_action_label",
+    "urgency_without_basis"
+  ],
+  "evidence_type": [
+    "cta_label",
+    "headline",
+    "body_copy",
+    "modal_text",
+    "form_label",
+    "toast_notification",
+    "email_subject",
+    "email_body"
+  ],
+  "jurisdiction_mapping": [
+    "FTC_Act_Section_5",
+    "ROSCA",
+    "CPRA_Dark_Pattern"
+  ],
+  "confidence": [
+    "HIGH",
+    "MEDIUM",
+    "LOW"
+  ]
+}
