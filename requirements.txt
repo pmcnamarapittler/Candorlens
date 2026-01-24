@@ -1,4 +1,35 @@
-azure-storage-blob
-python-dotenv
-fastapi
-uvicorn
+# CandorLens Dependencies
+# Last updated: 2025-01-24
+
+# === API Framework ===
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-dotenv>=1.0.0
+
+# === ML/NLP ===
+torch>=2.1.0
+transformers>=4.36.0
+datasets>=2.16.0
+scikit-learn>=1.4.0
+
+# === Data Processing ===
+pandas>=2.1.0
+numpy>=1.26.0
+Pillow>=10.2.0
+
+# === OCR (for screenshot text extraction) ===
+pytesseract>=0.3.10
+opencv-python>=4.9.0
+
+# === Cloud Storage ===
+azure-storage-blob>=12.19.0
+
+# === Development ===
+pytest>=7.4.0
+black>=24.1.0
+ruff>=0.1.14
+
+# === Utilities ===
+pydantic>=2.5.0
+httpx>=0.26.0
+tqdm>=4.66.0
