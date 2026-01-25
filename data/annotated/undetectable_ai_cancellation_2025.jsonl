@@ -1,0 +1,15 @@
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"01_pause_offer","screen_order":1,"pattern_class":"FAT","pattern_subtype":"loss_of_remaining_credits","text":"If you cancel, you will immediately lose your remaining words: 16,768","confidence":0.95}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"01_pause_offer","screen_order":1,"pattern_class":"FCL","pattern_subtype":"forced_alternative","text":"Opt for a subscription pause instead of canceling","confidence":0.85}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"01_pause_offer","screen_order":1,"pattern_class":"FCL","pattern_subtype":"incentivized_continuity","text":"FREE 10,000 word credits on your next month's subscription","confidence":0.90}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"02_feature_roadmap","screen_order":2,"pattern_class":"FU","pattern_subtype":"future_value_pressure","text":"We have new updates every week that keep you at the forefront of AI tech","confidence":0.80}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"02_feature_roadmap","screen_order":2,"pattern_class":"FU","pattern_subtype":"vague_roadmap","text":"Feature roadmap presented without dates","confidence":0.75}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"02_feature_roadmap","screen_order":2,"pattern_class":"FCL","pattern_subtype":"cta_hierarchy_bias","text":"Collect 10,000 FREE WORDS","confidence":0.85}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"03_confirm_modal","screen_order":3,"pattern_class":"FAT","pattern_subtype":"doubt_induction","text":"Are you sure you want to cancel your subscription?","confidence":0.70}
+
+{"flow_id":"undetectable_ai_cancellation_2025","screen_id":"03_confirm_modal","screen_order":3,"pattern_class":"FCL","pattern_subtype":"confirmation_friction","text":"Confirm","confidence":0.65}
