@@ -1,1 +1,65 @@
-
+{
+  "version": "2.0",
+  "last_updated": "2025-01-24",
+  "attack_classes": {
+    "forced_continuity": {
+      "regulations": [
+        {
+          "id": "ROSCA",
+          "name": "Restore Online Shoppers' Confidence Act",
+          "citation": "15 U.S.C. § 8401-8405",
+          "requirements": [
+            "Clear disclosure of material terms BEFORE obtaining billing info",
+            "Express informed consent BEFORE charging",
+            "Simple cancellation mechanism"
+          ]
+        },
+        {
+          "id": "FTC_Act_Section_5",
+          "name": "FTC Act Section 5",
+          "citation": "15 U.S.C. § 45(a)",
+          "violation_type": "Unfair or Deceptive Acts or Practices"
+        }
+      ],
+      "enforcement_precedent": [
+        {"case": "FTC v. ABCmouse", "year": 2020, "settlement_usd": 10000000},
+        {"case": "FTC v. Amazon Prime", "year": 2023, "status": "ongoing"},
+        {"case": "FTC v. Publishers Clearing House", "year": 2023, "settlement_usd": 18500000}
+      ],
+      "penalty_per_violation_usd": 50000
+    },
+    "false_urgency": {
+      "regulations": [
+        {
+          "id": "FTC_Act_Section_5",
+          "name": "FTC Act Section 5",
+          "citation": "15 U.S.C. § 45(a)",
+          "violation_type": "Deceptive Acts or Practices"
+        }
+      ],
+      "enforcement_precedent": [
+        {"case": "FTC v. Benefytt Technologies", "year": 2022, "settlement_usd": 100000000}
+      ],
+      "penalty_per_violation_usd": 50000
+    },
+    "fear_based_threat": {
+      "regulations": [
+        {
+          "id": "FTC_Act_Section_5",
+          "name": "FTC Act Section 5",
+          "citation": "15 U.S.C. § 45(a)",
+          "violation_type": "Unfair Acts or Practices"
+        },
+        {
+          "id": "CPRA_Dark_Pattern",
+          "name": "California Privacy Rights Act",
+          "citation": "Cal. Civ. Code § 1798.140(l)"
+        }
+      ],
+      "enforcement_precedent": [
+        {"case": "FTC v. Credit Karma", "year": 2022, "settlement_usd": 3000000}
+      ],
+      "penalty_per_violation_usd": 50000
+    }
+  }
+}
