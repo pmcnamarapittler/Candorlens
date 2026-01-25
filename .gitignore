@@ -55,8 +55,8 @@ local.settings.json
 # Data (private by default)
 ################################
 labelstudio_export*.json
-data/raw/
-data/exports/
+data/raw/private/
+data/raw/tmp/
 ml/data/
 
 ################################
