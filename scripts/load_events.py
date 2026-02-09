@@ -40,7 +40,7 @@ COERCION_VECTORS = {
 }
 
 
-def _validate_event(event: dict, strict_source: bool = False) -> list[str]:
+def _validate_event(event: dict, strict_source: bool = False):
     """Validate one event. Returns list of error messages (empty if valid)."""
     errs = []
     if not isinstance(event, dict):
@@ -84,11 +84,11 @@ def _validate_event(event: dict, strict_source: bool = False) -> list[str]:
 
 
 def load_events(
-    path: str | Path,
+    path,  # str or Path
     *,
     validate: bool = True,
     strict_source: bool = False,
-) -> list[dict]:
+):
     """
     Load LanguageEvent records from a JSONL file.
 
