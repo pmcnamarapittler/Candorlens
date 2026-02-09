@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
 CandorLens JSONL Validator
-Loads and validates LanguageEvent JSONL files against the schema.
+Loads and validates LanguageEvent JSONL files.
 
-Integrates with scripts/load_events.py for backward compatibility.
+This validator uses a relaxed Pydantic model that accepts:
+- Any non-empty event_id (not enforcing ^evt_[0-9]{8}_[0-9]{3}$)
+- ftc_complaint source (in addition to manual_label, model_prediction)
+
+For schema-strict validation (enforcing event_id pattern and source enum),
+use: python scripts/load_events.py --schema-strict
 
 Usage:
     python validate_jsonl.py <input.jsonl>
-    python validate_jsonl.py data/annotated/events.jsonl --strict
+    python validate_jsonl.py data/annotated/events.jsonl --fail-fast
+    python validate_jsonl.py data/annotated/events.jsonl --use-d2-loader --schema-strict
 """
 
 import json
@@ -27,11 +33,16 @@ except ImportError:
     HAS_D2_LOADER = False
 
 
-# --- Pydantic Models (schema enforcement) ---
-# Relaxed/backward-compat mode: taxonomy/language_event_schema.json requires
-# event_id pattern ^evt_[0-9]{8}_[0-9]{3}$ and source in (manual_label, model_prediction).
-# This model allows any non-empty event_id and ftc_complaint so existing JSONL (e.g. FTC-sourced)
-# validates. For schema-strict validation use scripts/load_events.py with --strict-source.
+# --- Pydantic Models (relaxed for backward compatibility) ---
+# The official schema (taxonomy/language_event_schema.json) requires:
+#   - event_id pattern: ^evt_[0-9]{8}_[0-9]{3}$
+#   - source enum: (manual_label, model_prediction)
+#
+# This Pydantic model is relaxed to accept:
+#   - Any non-empty event_id string
+#   - ftc_complaint source (for legacy data)
+#
+# For schema-strict validation, use: python scripts/load_events.py --schema-strict
 
 class LanguageEvent(BaseModel):
     """Pydantic model for CandorLens LanguageEvent (relaxed for backward compatibility)."""
@@ -99,14 +110,14 @@ class LanguageEvent(BaseModel):
 
 def load_and_validate_jsonl(
     filepath: Path, 
-    strict: bool = False
+    fail_fast: bool = False
 ) -> tuple[List[LanguageEvent], List[dict]]:
     """
     Load and validate JSONL file.
     
     Args:
         filepath: Path to JSONL file
-        strict: If True, raise exception on first error. If False, collect errors and continue.
+        fail_fast: If True, raise exception on first error. If False, collect errors and continue.
     
     Returns:
         Tuple of (valid_events, errors)
@@ -142,7 +153,7 @@ def load_and_validate_jsonl(
                     'raw_data': line[:100]  # First 100 chars
                 }
                 errors.append(error)
-                if strict:
+                if fail_fast:
                     raise
                     
             except ValidationError as e:
@@ -152,7 +163,7 @@ def load_and_validate_jsonl(
                     'raw_data': raw_data
                 }
                 errors.append(error)
-                if strict:
+                if fail_fast:
                     raise
     
     return valid_events, errors
@@ -177,8 +188,8 @@ def print_validation_report(valid_events: List[LanguageEvent], errors: List[dict
         if len(errors) > 10:
             print(f"\n  ... and {len(errors) - 10} more errors")
     
-    if valid_events:
-        print("\nOK: All events passed schema validation")
+    if valid_events and not errors:
+        print("\nOK: All events passed validation")
     
     print("="*60)
 
@@ -193,7 +204,7 @@ def main():
         help='Path to JSONL file to validate'
     )
     parser.add_argument(
-        '--strict',
+        '--fail-fast',
         action='store_true',
         help='Fail immediately on first error (default: collect all errors)'
     )
@@ -212,13 +223,38 @@ def main():
         action='store_true',
         help='With --use-d2-loader: require source in (manual_label, model_prediction) only'
     )
+    parser.add_argument(
+        '--schema-strict',
+        action='store_true',
+        help='With --use-d2-loader: enforce schema event_id pattern and source enum'
+    )
     
     args = parser.parse_args()
     
     # Option to use D2 loader for backward compatibility
-    if args.use_d2_loader and HAS_D2_LOADER:
+    if args.use_d2_loader:
+        if not HAS_D2_LOADER:
+            print("ERROR: --use-d2-loader requested but scripts/load_events.py could not be imported", file=sys.stderr)
+            print("  Ensure scripts/load_events.py exists and is importable", file=sys.stderr)
+            sys.exit(1)
+        
         print("LOADING: Using D2 loader (scripts/load_events.py)")
-        events = d2_load_events(args.input_file, validate=True, strict_source=args.strict_source)
+        
+        if not args.input_file.exists():
+            print(f"ERROR: File not found: {args.input_file}", file=sys.stderr)
+            sys.exit(1)
+        
+        events = d2_load_events(
+            args.input_file, 
+            validate=True, 
+            strict_source=args.strict_source,
+            schema_strict=args.schema_strict
+        )
+        
+        if not events:
+            print(f"WARNING: No events loaded from {args.input_file}", file=sys.stderr)
+            print("  The file may be empty or all events may be invalid", file=sys.stderr)
+        
         print(f"\nSUCCESS: Loaded {len(events)} valid events")
         if events:
             by_class = {}
@@ -229,7 +265,7 @@ def main():
         exit(0)
     
     # Load and validate with Pydantic (default)
-    valid_events, errors = load_and_validate_jsonl(args.input_file, strict=args.strict)
+    valid_events, errors = load_and_validate_jsonl(args.input_file, fail_fast=args.fail_fast)
     
     # Print report
     print_validation_report(valid_events, errors)
@@ -243,10 +279,10 @@ def main():
         print(f"\nSAVED: Saved {len(valid_events)} valid events to: {args.output}")
     
     # Exit code
-    if errors and args.strict:
+    if errors and args.fail_fast:
         exit(1)
     elif errors:
-        print("\nWARNING: Validation completed with errors (use --strict to fail)")
+        print("\nWARNING: Validation completed with errors (use --fail-fast to fail)")
         exit(0)
     else:
         print("\nSUCCESS: Validation successful!")

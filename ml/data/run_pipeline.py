@@ -52,7 +52,7 @@ def run_full_pipeline(
         print("STEP 1: VALIDATION")
         print("─"*70)
         
-        valid_events, errors = load_and_validate_jsonl(input_file, strict=False)
+        valid_events, errors = load_and_validate_jsonl(input_file, fail_fast=False)
         print_validation_report(valid_events, errors)
         
         if errors:
@@ -98,6 +98,13 @@ def run_full_pipeline(
     print("─"*70)
     
     events = load_events(working_file)
+    
+    if not events:
+        print("ERROR: No events were loaded for analysis.")
+        print("   The input file may be empty or all events may have been filtered out.")
+        print("   Fix the input data or adjust preprocessing and re-run the pipeline.")
+        sys.exit(1)
+    
     report = generate_report(events)
     print(report)
     
@@ -138,8 +145,12 @@ def run_full_pipeline(
     print("="*70)
     print(f"\nDIR: Output directory: {output_dir}")
     print(f"\nFILE: Generated files:")
-    print(f"   OK: {output_dir / 'validated.jsonl'} (validated events)")
-    print(f"   OK: {output_dir / 'preprocessed.jsonl'} (cleaned text)")
+    
+    if not skip_validation:
+        print(f"   OK: {output_dir / 'validated.jsonl'} (validated events)")
+    if not skip_preprocessing:
+        print(f"   OK: {output_dir / 'preprocessed.jsonl'} (cleaned text)")
+    
     print(f"   OK: {output_dir / 'analysis_report.txt'} (quality report)")
     print(f"   OK: {output_dir / 'train.jsonl'} ({len(train)} events)")
     print(f"   OK: {output_dir / 'val.jsonl'} ({len(val)} events)")
