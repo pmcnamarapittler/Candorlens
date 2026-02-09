@@ -28,6 +28,10 @@ REQUIRED_KEYS = {
     "rationale",
     "source",
 }
+
+# Schema-strict event_id pattern
+EVENT_ID_PATTERN = r"^evt_[0-9]{8}_[0-9]{3}$"
+
 ATTACK_CLASSES = {"forced_continuity", "false_urgency", "fear_based_threat"}
 CONFIDENCE = {"HIGH", "MEDIUM", "LOW"}
 COMMITMENT_STAGE = {"pre_commit", "commit", "post_commit"}
@@ -58,13 +62,13 @@ def _validate_event(event: dict, strict_source: bool = False, schema_strict: boo
     if missing:
         errs.append(f"missing required keys: {missing}")
     
-    # Schema-strict validation: event_id must match ^evt_[0-9]{8}_[0-9]{3}$
+    # Schema-strict validation: event_id must match pattern
     if schema_strict and "event_id" in event:
         event_id = event["event_id"]
         if not isinstance(event_id, str):
             errs.append("event_id must be a string")
-        elif not re.match(r"^evt_[0-9]{8}_[0-9]{3}$", event_id):
-            errs.append(f"event_id must match pattern ^evt_[0-9]{{8}}_[0-9]{{3}}$ (got {event_id})")
+        elif not re.match(EVENT_ID_PATTERN, event_id):
+            errs.append(f"event_id must match pattern {EVENT_ID_PATTERN} (got {event_id})")
 
     if "attack_class" in event and event["attack_class"] not in ATTACK_CLASSES:
         errs.append(f"invalid attack_class: {event['attack_class']}")
@@ -95,7 +99,7 @@ def _validate_event(event: dict, strict_source: bool = False, schema_strict: boo
             errs.append("text must be non-empty")
     
     if "rationale" in event:
-        rationale_value = event.get("rationale")
+        rationale_value = event["rationale"]
         if not isinstance(rationale_value, str):
             errs.append("rationale must be a string")
         elif len(rationale_value) < 10:
