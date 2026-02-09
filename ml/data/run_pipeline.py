@@ -52,7 +52,7 @@ def run_full_pipeline(
         print("STEP 1: VALIDATION")
         print("─"*70)
         
-        valid_events, errors = load_and_validate_jsonl(input_file, strict=False)
+        valid_events, errors = load_and_validate_jsonl(input_file, fail_fast=False)
         print_validation_report(valid_events, errors)
         
         if errors:
