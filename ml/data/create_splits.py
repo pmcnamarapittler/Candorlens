@@ -65,32 +65,34 @@ def create_stratified_splits(
     labels = [e['attack_class'] for e in events]
     
     # Check if we have enough samples per class for stratification
+    # train_test_split(..., stratify=...) requires at least 2 samples per class
     label_counts = Counter(labels)
     min_class_count = min(label_counts.values())
-    
-    if min_class_count < 3:
+    use_stratify = min_class_count >= 2
+
+    if min_class_count < 2:
         print(f"WARNING: Some classes have very few samples (min={min_class_count})")
-        print(f"   Stratification may not be perfect. Consider adding more data.")
-        # Still proceed, sklearn will handle it
-    
+        print(f"   Stratification requires at least 2 per class. Using unstratified splits.")
+    elif min_class_count < 3:
+        print(f"WARNING: Some classes have very few samples (min={min_class_count})")
+        print(f"   Consider adding more data for better stratification.")
+
     # First split: separate test set
     train_val_events, test_events, train_val_labels, test_labels = train_test_split(
         events,
         labels,
         test_size=test_size,
-        stratify=labels,
+        stratify=labels if use_stratify else None,
         random_state=random_seed
     )
-    
+
     # Second split: separate validation from training
-    # Adjust val_size to be relative to remaining data
     val_size_adjusted = val_size / (1 - test_size)
-    
     train_events, val_events, train_labels, val_labels = train_test_split(
         train_val_events,
         train_val_labels,
         test_size=val_size_adjusted,
-        stratify=train_val_labels,
+        stratify=train_val_labels if use_stratify else None,
         random_state=random_seed
     )
     

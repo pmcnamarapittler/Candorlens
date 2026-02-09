@@ -94,33 +94,35 @@ def load_events(
 
     Args:
         path: Path to .jsonl file (e.g. data/annotated/events.jsonl).
-        validate: If True, skip lines that fail validation (and still return valid events).
+        validate: If True, print validation errors to stderr for invalid lines.
+                  Invalid lines are always excluded from the returned list.
         strict_source: If True, require source in (manual_label, model_prediction).
 
     Returns:
-        List of event dicts. Invalid lines are skipped when validate=True.
+        List of event dicts. Invalid lines are always skipped.
     """
     path = Path(path)
     if not path.exists():
         return []
 
     events = []
-    for i, line in enumerate(path.read_text().strip().splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError as e:
-            if validate:
-                print(f"  [load_events] Line {i}: invalid JSON - {e}", file=sys.stderr)
-            continue
-        errs = _validate_event(event, strict_source=strict_source)
-        if errs:
-            if validate:
-                print(f"  [load_events] Line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
-            continue
-        events.append(event)
+    with path.open(encoding="utf-8") as f:
+        for i, raw_line in enumerate(f, start=1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError as e:
+                if validate:
+                    print(f"  [load_events] Line {i}: invalid JSON - {e}", file=sys.stderr)
+                continue
+            errs = _validate_event(event, strict_source=strict_source)
+            if errs:
+                if validate:
+                    print(f"  [load_events] Line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
+                continue
+            events.append(event)
     return events
 
 
@@ -141,20 +143,21 @@ def main():
     # When validate_only we want to fail on first invalid line
     if args.validate_only:
         events = []
-        for i, line in enumerate(path.read_text().strip().splitlines(), start=1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError as e:
-                print(f"Invalid JSON line {i}: {e}", file=sys.stderr)
-                sys.exit(1)
-            errs = _validate_event(event, strict_source=args.strict_source)
-            if errs:
-                print(f"Invalid event line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
-                sys.exit(1)
-            events.append(event)
+        with path.open(encoding="utf-8") as f:
+            for i, raw_line in enumerate(f, start=1):
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError as e:
+                    print(f"Invalid JSON line {i}: {e}", file=sys.stderr)
+                    sys.exit(1)
+                errs = _validate_event(event, strict_source=args.strict_source)
+                if errs:
+                    print(f"Invalid event line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
+                    sys.exit(1)
+                events.append(event)
         print(f"OK: {len(events)} events valid")
         sys.exit(0)
 

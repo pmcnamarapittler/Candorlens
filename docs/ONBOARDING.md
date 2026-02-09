@@ -4,58 +4,54 @@ Getting started with CandorLens development.
 
 ---
 
-## D2: Data pipeline, JSONL loader, 50+ events
+## Deliverable 2 (D2) — Proposal Alignment
 
-### 1. Data pipeline (flow capture → annotation → JSONL)
+**Proposal (Feb 8):** *Data pipeline working, JSONL loader validated, 50+ events ingested.*
 
-**Capture flows (Playwright)**
+### 1. Data pipeline working
 
-- From repo root:
-  ```bash
-  pip install playwright
-  playwright install chromium
-  python scripts/flow_collector.py --interactive
-  ```
-- Flows are saved under `data/raw/<flow_id>/` (screenshots + `flow_metadata.json`).
-- Use `--output <dir>` to override the output directory.
+Per proposal §6 (Data Strategy): Playwright-based flow collector, manual annotation, JSONL output.
 
-**Annotate events**
+- **Flow capture:** `scripts/flow_collector.py` — Playwright-based capture of subscription/checkout/cancellation flows. Output: `data/raw/<flow_id>/` (screenshots + metadata).
+- **Annotation:** `scripts/annotate.py` — Manual annotation of each text sample with attack class, confidence, and reasoning. Output: appends to `data/annotated/events.jsonl`.
+- **Schema:** Each event follows the LanguageEvent schema in `taxonomy/language_event_schema.json`.
 
-- Add LanguageEvent records to the annotated JSONL:
-  ```bash
-  python scripts/annotate.py --output data/annotated/events.jsonl
-  ```
-- Interactive prompts walk you through required fields (attack_class, confidence, coercion_vector, etc.).
-- Schema: `taxonomy/language_event_schema.json`.
+**Run from repo root:**
+```bash
+pip install playwright && playwright install chromium
+python scripts/flow_collector.py --interactive
+python scripts/annotate.py --output data/annotated/events.jsonl
+```
 
-**JSONL loader**
+### 2. JSONL loader validated
 
-- Load and validate events from the annotated file:
-  ```bash
-  python scripts/load_events.py [path]           # default: data/annotated/events.jsonl
-  python scripts/load_events.py --validate-only  # exit 1 if any line invalid
-  ```
-- In code:
-  ```python
-  from scripts.load_events import load_events
-  events = load_events("data/annotated/events.jsonl")
-  ```
-- Invalid lines are skipped (and reported on stderr) when `validate=True`.
+- **Loader:** `scripts/load_events.py` — Loads and validates JSONL; streams file line-by-line; supports `--validate-only` and `--strict-source`.
+- **Validator:** `ml/data/validate_jsonl.py` — Pydantic-based validation with optional `--use-d2-loader` and `--strict-source`.
 
-### 2. Event count (50+)
+**Validate from repo root:**
+```bash
+python scripts/load_events.py
+python scripts/load_events.py --validate-only
+python -m ml.data.validate_jsonl data/annotated/events.jsonl
+```
 
-- `data/annotated/events.jsonl` contains **51** events (manual_label + ftc_complaint–sourced).
-- To add more: run `python scripts/annotate.py` or append valid JSONL lines to `data/annotated/events.jsonl`.
+### 3. 50+ events ingested
 
-### 3. Key files
+- **Current:** `data/annotated/events.jsonl` contains **150** events (manual_label + ftc_complaint–sourced). The proposal target of 50+ events is met.
+- **Add more:** Run `python scripts/annotate.py` or append valid LanguageEvent JSONL lines; re-run the loader to validate.
 
-| File | Purpose |
+---
+
+## Key files
+
+| Path | Purpose |
 |------|--------|
 | `taxonomy/attack_classes.md` | Definitions of FCL, FU, FAT |
 | `taxonomy/legal_mapping.json` | Class → regulation → citation |
-| `taxonomy/language_event_schema.json` | Training data (LanguageEvent) schema |
-| `data/raw/` | Raw captured flows (screenshots + metadata) |
-| `data/annotated/events.jsonl` | Labeled events for training |
-| `scripts/flow_collector.py` | Capture flows interactively |
-| `scripts/annotate.py` | Create events interactively |
-| `scripts/load_events.py` | Load and validate JSONL events |
+| `taxonomy/language_event_schema.json` | LanguageEvent schema |
+| `data/raw/` | Raw captured flows |
+| `data/annotated/events.jsonl` | Labeled events |
+| `scripts/flow_collector.py` | Playwright flow capture |
+| `scripts/annotate.py` | Manual annotation |
+| `scripts/load_events.py` | JSONL loader |
+| `ml/data/validate_jsonl.py` | JSONL validator |

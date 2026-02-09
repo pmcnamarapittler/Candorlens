@@ -12,11 +12,17 @@ import argparse
 from pathlib import Path
 import sys
 
-# Import pipeline modules
-from validate_jsonl import load_and_validate_jsonl, print_validation_report
-from preprocess import preprocess_jsonl
-from analyze_dataset import load_events, generate_report
-from create_splits import create_stratified_splits, print_split_summary, save_events, save_split_metadata
+# Import pipeline modules (relative when run as package, else direct for script-from-ml/data)
+try:
+    from .validate_jsonl import load_and_validate_jsonl, print_validation_report
+    from .preprocess import preprocess_jsonl
+    from .analyze_dataset import load_events, generate_report
+    from .create_splits import create_stratified_splits, print_split_summary, save_events, save_split_metadata
+except ImportError:
+    from validate_jsonl import load_and_validate_jsonl, print_validation_report
+    from preprocess import preprocess_jsonl
+    from analyze_dataset import load_events, generate_report
+    from create_splits import create_stratified_splits, print_split_summary, save_events, save_split_metadata
 
 
 def run_full_pipeline(

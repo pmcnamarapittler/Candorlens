@@ -28,9 +28,13 @@ except ImportError:
 
 
 # --- Pydantic Models (schema enforcement) ---
+# Relaxed/backward-compat mode: taxonomy/language_event_schema.json requires
+# event_id pattern ^evt_[0-9]{8}_[0-9]{3}$ and source in (manual_label, model_prediction).
+# This model allows any non-empty event_id and ftc_complaint so existing JSONL (e.g. FTC-sourced)
+# validates. For schema-strict validation use scripts/load_events.py with --strict-source.
 
 class LanguageEvent(BaseModel):
-    """Pydantic model for CandorLens LanguageEvent schema."""
+    """Pydantic model for CandorLens LanguageEvent (relaxed for backward compatibility)."""
     
     event_id: str = Field(..., min_length=1)  # Relaxed: allow any non-empty string
     text: str = Field(..., min_length=1)
@@ -203,13 +207,18 @@ def main():
         action='store_true',
         help='Use the D2 simple loader (scripts/load_events.py) instead of Pydantic'
     )
+    parser.add_argument(
+        '--strict-source',
+        action='store_true',
+        help='With --use-d2-loader: require source in (manual_label, model_prediction) only'
+    )
     
     args = parser.parse_args()
     
     # Option to use D2 loader for backward compatibility
     if args.use_d2_loader and HAS_D2_LOADER:
         print("LOADING: Using D2 loader (scripts/load_events.py)")
-        events = d2_load_events(args.input_file, validate=True)
+        events = d2_load_events(args.input_file, validate=True, strict_source=args.strict_source)
         print(f"\nSUCCESS: Loaded {len(events)} valid events")
         if events:
             by_class = {}

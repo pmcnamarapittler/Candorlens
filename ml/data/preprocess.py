@@ -59,9 +59,17 @@ def normalize_punctuation(text: str) -> str:
 
 def normalize_quotes(text: str) -> str:
     """Normalize different quote styles to standard ASCII."""
-    # Smart quotes → regular quotes
-    text = text.replace('"', '"').replace('"', '"')
-    text = text.replace(''', "'").replace(''', "'")
+    # Map common smart/curly quotes to straight ASCII (Unicode escapes for portability)
+    replacements = {
+        "\u201C": '"',  # left double quotation mark
+        "\u201D": '"',   # right double quotation mark
+        "\u201E": '"',   # double low-9 quotation mark
+        "\u2018": "'",   # left single quotation mark
+        "\u2019": "'",   # right single quotation mark / apostrophe
+        "\u201B": "'",   # single high-reversed-9 quotation mark
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
     return text
 
 
