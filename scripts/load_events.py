@@ -6,9 +6,11 @@ Loads and validates LanguageEvent records from annotated JSONL files.
 Usage:
     python scripts/load_events.py [path]           # Default: data/annotated/events.jsonl
     python scripts/load_events.py --validate-only  # Exit 1 if any line invalid
+    python scripts/load_events.py --schema-strict  # Enforce schema event_id + source
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,8 +42,14 @@ COERCION_VECTORS = {
 }
 
 
-def _validate_event(event: dict, strict_source: bool = False):
-    """Validate one event. Returns list of error messages (empty if valid)."""
+def _validate_event(event: dict, strict_source: bool = False, schema_strict: bool = False):
+    """Validate one event. Returns list of error messages (empty if valid).
+    
+    Args:
+        event: Event dictionary to validate
+        strict_source: If True, require source in (manual_label, model_prediction)
+        schema_strict: If True, enforce schema event_id pattern and source enum
+    """
     errs = []
     if not isinstance(event, dict):
         return ["event is not a dict"]
@@ -49,6 +57,14 @@ def _validate_event(event: dict, strict_source: bool = False):
     missing = REQUIRED_KEYS - set(event.keys())
     if missing:
         errs.append(f"missing required keys: {missing}")
+    
+    # Schema-strict validation: event_id must match ^evt_[0-9]{8}_[0-9]{3}$
+    if schema_strict and "event_id" in event:
+        event_id = event["event_id"]
+        if not isinstance(event_id, str):
+            errs.append("event_id must be a string")
+        elif not re.match(r"^evt_[0-9]{8}_[0-9]{3}$", event_id):
+            errs.append(f"event_id must match pattern ^evt_[0-9]{{8}}_[0-9]{{3}}$ (got {event_id})")
 
     if "attack_class" in event and event["attack_class"] not in ATTACK_CLASSES:
         errs.append(f"invalid attack_class: {event['attack_class']}")
@@ -70,15 +86,28 @@ def _validate_event(event: dict, strict_source: bool = False):
 
     if "flow_step" in event and (not isinstance(event["flow_step"], int) or event["flow_step"] < 0):
         errs.append("flow_step must be non-negative integer")
-    if "text" in event and (not event["text"] or not event["text"].strip()):
-        errs.append("text must be non-empty")
-    if "rationale" in event and len(event.get("rationale", "")) < 10:
-        errs.append("rationale must be at least 10 characters")
+    
+    if "text" in event:
+        text_value = event["text"]
+        if not isinstance(text_value, str):
+            errs.append("text must be a string")
+        elif not text_value.strip():
+            errs.append("text must be non-empty")
+    
+    if "rationale" in event:
+        rationale_value = event.get("rationale")
+        if not isinstance(rationale_value, str):
+            errs.append("rationale must be a string")
+        elif len(rationale_value) < 10:
+            errs.append("rationale must be at least 10 characters")
 
-    if strict_source and "source" in event:
-        if event["source"] not in ("manual_label", "model_prediction"):
-            errs.append(f"source must be manual_label or model_prediction (got {event['source']})")
-    # Otherwise allow ftc_complaint etc. for backward compatibility
+    # Source validation
+    if "source" in event:
+        if schema_strict or strict_source:
+            # Schema-strict or strict_source: only allow schema-defined values
+            if event["source"] not in ("manual_label", "model_prediction"):
+                errs.append(f"source must be manual_label or model_prediction (got {event['source']})")
+        # Otherwise allow ftc_complaint etc. for backward compatibility
 
     return errs
 
@@ -88,6 +117,7 @@ def load_events(
     *,
     validate: bool = True,
     strict_source: bool = False,
+    schema_strict: bool = False,
 ):
     """
     Load LanguageEvent records from a JSONL file.
@@ -97,13 +127,17 @@ def load_events(
         validate: If True, print validation errors to stderr for invalid lines.
                   Invalid lines are always excluded from the returned list.
         strict_source: If True, require source in (manual_label, model_prediction).
+        schema_strict: If True, enforce schema event_id pattern and source enum.
 
     Returns:
         List of event dicts. Invalid lines are always skipped.
+        
+    Raises:
+        FileNotFoundError: If the file does not exist.
     """
     path = Path(path)
     if not path.exists():
-        return []
+        raise FileNotFoundError(f"File not found: {path}")
 
     events = []
     with path.open(encoding="utf-8") as f:
@@ -117,7 +151,7 @@ def load_events(
                 if validate:
                     print(f"  [load_events] Line {i}: invalid JSON - {e}", file=sys.stderr)
                 continue
-            errs = _validate_event(event, strict_source=strict_source)
+            errs = _validate_event(event, strict_source=strict_source, schema_strict=schema_strict)
             if errs:
                 if validate:
                     print(f"  [load_events] Line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
@@ -133,6 +167,7 @@ def main():
     parser.add_argument("path", nargs="?", default=str(default_path), help="Path to events.jsonl")
     parser.add_argument("--validate-only", action="store_true", help="Exit with code 1 if any line is invalid")
     parser.add_argument("--strict-source", action="store_true", help="Require source in manual_label, model_prediction")
+    parser.add_argument("--schema-strict", action="store_true", help="Enforce schema event_id pattern and source enum")
     args = parser.parse_args()
 
     path = Path(args.path)
@@ -153,7 +188,7 @@ def main():
                 except json.JSONDecodeError as e:
                     print(f"Invalid JSON line {i}: {e}", file=sys.stderr)
                     sys.exit(1)
-                errs = _validate_event(event, strict_source=args.strict_source)
+                errs = _validate_event(event, strict_source=args.strict_source, schema_strict=args.schema_strict)
                 if errs:
                     print(f"Invalid event line {i} ({event.get('event_id', '?')}): {'; '.join(errs)}", file=sys.stderr)
                     sys.exit(1)
@@ -161,7 +196,7 @@ def main():
         print(f"OK: {len(events)} events valid")
         sys.exit(0)
 
-    events = load_events(path, validate=True, strict_source=args.strict_source)
+    events = load_events(path, validate=True, strict_source=args.strict_source, schema_strict=args.schema_strict)
     print(f"Loaded {len(events)} events from {path}")
     if events:
         by_class = {}

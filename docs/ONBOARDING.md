@@ -14,7 +14,7 @@ Per proposal §6 (Data Strategy): Playwright-based flow collector, manual annota
 
 - **Flow capture:** `scripts/flow_collector.py` — Playwright-based capture of subscription/checkout/cancellation flows. Output: `data/raw/<flow_id>/` (screenshots + metadata).
 - **Annotation:** `scripts/annotate.py` — Manual annotation of each text sample with attack class, confidence, and reasoning. Output: appends to `data/annotated/events.jsonl`.
-- **Schema:** Each event follows the LanguageEvent schema in `taxonomy/language_event_schema.json`.
+- **Schema:** The strict LanguageEvent schema is defined in `taxonomy/language_event_schema.json`. The working dataset `data/annotated/events.jsonl` is relaxed (includes extra sources like `ftc_complaint` and varied `event_id` formats). Use `--schema-strict` for strict schema validation.
 
 **Run from repo root:**
 ```bash
@@ -25,14 +25,25 @@ python scripts/annotate.py --output data/annotated/events.jsonl
 
 ### 2. JSONL loader validated
 
-- **Loader:** `scripts/load_events.py` — Loads and validates JSONL; streams file line-by-line; supports `--validate-only` and `--strict-source`.
-- **Validator:** `ml/data/validate_jsonl.py` — Pydantic-based validation with optional `--use-d2-loader` and `--strict-source`.
+- **Loader:** `scripts/load_events.py` — Loads and validates JSONL; streams file line-by-line.
+  - Default mode: Relaxed validation (accepts any `event_id`, allows `ftc_complaint` source)
+  - `--strict-source`: Require source in (manual_label, model_prediction)
+  - `--schema-strict`: Enforce schema `event_id` pattern (^evt_[0-9]{8}_[0-9]{3}$) and source enum
+  - `--validate-only`: Exit with code 1 if any line is invalid
+- **Validator:** `ml/data/validate_jsonl.py` — Pydantic-based validation (relaxed by default)
+  - `--use-d2-loader`: Use the simple loader from scripts/load_events.py
+  - `--schema-strict`: With --use-d2-loader, enforce strict schema validation
+  - `--fail-fast`: Stop on first error instead of collecting all errors
 
 **Validate from repo root:**
 ```bash
+# Relaxed validation (default)
 python scripts/load_events.py
 python scripts/load_events.py --validate-only
-python -m ml.data.validate_jsonl data/annotated/events.jsonl
+
+# Schema-strict validation (enforces event_id pattern and source enum)
+python scripts/load_events.py --schema-strict
+python -m ml.data.validate_jsonl data/annotated/events.jsonl --use-d2-loader --schema-strict
 ```
 
 ### 3. 50+ events ingested
