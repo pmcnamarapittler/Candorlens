@@ -12,6 +12,9 @@ transformers>=4.36.0
 datasets>=2.16.0
 scikit-learn>=1.4.0
 
+# === Flow capture (Playwright) ===
+playwright>=1.40.0
+
 # === Data Processing ===
 pandas>=2.1.0
 numpy>=1.26.0

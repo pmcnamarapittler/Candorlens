@@ -23,7 +23,7 @@ except ImportError:
     sys.exit(1)
 
 
-OUTPUT_DIR = Path("./ml/data/flows")
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
 VIEWPORT = {"width": 1420, "height": 900}
 
 
@@ -132,7 +132,7 @@ class FlowCollector:
         
         print(f"\nFlow saved: {flow_dir}")
         print(f"   Steps: {len(steps)}")
-        print(f"   Now create: ml/data/annotations/{flow_id}.jsonl")
+        print(f"   Annotate via: python scripts/annotate.py --output data/annotated/events.jsonl")
         
         return flow_dir
 
@@ -140,7 +140,7 @@ class FlowCollector:
 def main():
     parser = argparse.ArgumentParser(description="CandorLens Flow Collector")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
-    parser.add_argument("--output", "-o", default="./ml/data/flows")
+    parser.add_argument("--output", "-o", default=str(Path(__file__).resolve().parent.parent / "data" / "raw"), help="Output directory for flows (default: data/raw)")
     args = parser.parse_args()
     
     collector = FlowCollector(output_dir=Path(args.output))

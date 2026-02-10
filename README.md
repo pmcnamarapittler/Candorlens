@@ -199,12 +199,12 @@ See [`docs/ONBOARDING.md`](docs/ONBOARDING.md) for the complete getting-started 
 ### Key files to read first:
 1. **`taxonomy/attack_classes.md`** — Understand the 3 classes you're detecting
 2. **`taxonomy/legal_mapping.json`** — See how classes map to regulations
-3. **`data/schema/language_event.json`** — Training data format
+3. **`taxonomy/language_event_schema.json`** — Training data (LanguageEvent) format
 
 ### Deliverables by milestone:
 | Date | Milestone | Deliverable |
 |------|-----------|-------------|
-| Feb 8 | D2 | Data pipeline working, JSONL loader, 50+ events |
+| Feb 8 | D2 | Data pipeline working, JSONL loader validated, 50+ events ingested |
 | Feb 22 | D3 | Classifier v1 trained, ≥60% precision |
 | Mar 8 | D4 | FastAPI deployed to Azure, end-to-end working |
 | Apr 5 | D5 | Full pipeline with PDF reports, ≥70% precision |
