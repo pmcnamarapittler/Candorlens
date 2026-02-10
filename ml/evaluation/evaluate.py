@@ -107,14 +107,14 @@ def main():
     all_pass = True
     for name in target_names:
         precision = report[name]["precision"]
-        status = "✅ PASS" if precision >= 0.60 else "❌ FAIL"
+        status = "PASS" if precision >= 0.60 else "FAIL"
         print(f"  {name:>20}: {precision:.2%}  {status}")
         if precision < 0.60:
             all_pass = False
 
     macro_f1 = report["macro avg"]["f1-score"]
     print(f"\n  {'Macro F1':>20}: {macro_f1:.2%}")
-    print(f"\n  Overall: {'✅ D3 TARGET MET' if all_pass else '❌ D3 TARGET NOT MET'}")
+    print(f"\n  Overall: {'D3 TARGET MET' if all_pass else 'D3 TARGET NOT MET'}")
 
     # 8. Save results
     results_dir = Path(__file__).resolve().parent
