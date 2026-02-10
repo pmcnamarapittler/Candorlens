@@ -90,3 +90,5 @@ ml/models/*.pt
 
 ml/data/splits/
 ml/data/flows/
+
+ml/models/*/
