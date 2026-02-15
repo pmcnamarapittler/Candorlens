@@ -1,0 +1,59 @@
+{
+  "test_samples": 30,
+  "classification_report": {
+    "false_urgency": {
+      "precision": 0.9,
+      "recall": 0.9,
+      "f1-score": 0.9,
+      "support": 10.0
+    },
+    "fear_based_threat": {
+      "precision": 0.6363636363636364,
+      "recall": 0.7,
+      "f1-score": 0.6666666666666666,
+      "support": 10.0
+    },
+    "forced_continuity": {
+      "precision": 0.7777777777777778,
+      "recall": 0.7,
+      "f1-score": 0.7368421052631579,
+      "support": 10.0
+    },
+    "accuracy": 0.7666666666666667,
+    "macro avg": {
+      "precision": 0.7713804713804714,
+      "recall": 0.7666666666666666,
+      "f1-score": 0.7678362573099414,
+      "support": 30.0
+    },
+    "weighted avg": {
+      "precision": 0.7713804713804714,
+      "recall": 0.7666666666666667,
+      "f1-score": 0.7678362573099415,
+      "support": 30.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      9,
+      1,
+      0
+    ],
+    [
+      1,
+      7,
+      2
+    ],
+    [
+      0,
+      3,
+      7
+    ]
+  ],
+  "d3_target_met": true,
+  "per_class_precision": {
+    "false_urgency": 0.9,
+    "fear_based_threat": 0.6364,
+    "forced_continuity": 0.7778
+  }
+}
