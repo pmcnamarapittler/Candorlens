@@ -57,6 +57,7 @@ local.settings.json
 labelstudio_export*.json
 data/raw/private/
 data/raw/tmp/
+data/reports/
 
 ################################
 # ML model artifacts (private by default)

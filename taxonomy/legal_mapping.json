@@ -26,7 +26,9 @@
         {"case": "FTC v. Amazon Prime", "year": 2023, "status": "ongoing"},
         {"case": "FTC v. Publishers Clearing House", "year": 2023, "settlement_usd": 18500000}
       ],
-      "penalty_per_violation_usd": 50000
+      "penalty_per_violation_usd": 50000,
+      "risk_severity": "high",
+      "remediation_guidance": "Disclose recurring charges and auto-renewal terms clearly before collecting billing information. Obtain express informed consent before charging. Provide a simple, conspicuous cancellation mechanism. Avoid burying material terms in fine print or post-commitment screens."
     },
     "false_urgency": {
       "regulations": [
@@ -40,7 +42,9 @@
       "enforcement_precedent": [
         {"case": "FTC v. Benefytt Technologies", "year": 2022, "settlement_usd": 100000000}
       ],
-      "penalty_per_violation_usd": 50000
+      "penalty_per_violation_usd": 50000,
+      "risk_severity": "medium",
+      "remediation_guidance": "Remove or substantiate time-limited claims. Do not use countdown timers or 'limited availability' language unless the offer or inventory is genuinely limited. Ensure any urgency is based on real deadlines or scarcity."
     },
     "fear_based_threat": {
       "regulations": [
@@ -59,7 +63,9 @@
       "enforcement_precedent": [
         {"case": "FTC v. Credit Karma", "year": 2022, "settlement_usd": 3000000}
       ],
-      "penalty_per_violation_usd": 50000
+      "penalty_per_violation_usd": 50000,
+      "risk_severity": "high",
+      "remediation_guidance": "Do not imply account suspension, security compromise, or loss of access to coerce immediate action. Replace threatening language with neutral, factual notices. Provide clear paths to verify or update information without fear-based pressure."
     }
   }
 }
