@@ -1,0 +1,14 @@
+{
+ "events": [
+   {
+     "text": "Start your free trial today. $0 due today.",
+     "flow_id": "checkout_free_trial_001",
+     "flow_step": 0
+   },
+   {
+     "text": "Only 2 spots left at this price!",
+     "flow_id": "checkout_free_trial_001",
+     "flow_step": 1
+   }
+ ]
+}

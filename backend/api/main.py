@@ -1,14 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from backend.services.blob_reports import save_report, get_report
+from backend.api.routes import analyze
+from backend.services.bert_classifier import get_classifier
+from backend.services.blob_reports import get_report, save_report
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Preload BERT model at startup for P95 response time under 500ms."""
+    get_classifier().load()
+    yield
+    # Shutdown: no explicit unload needed
 
 
 app = FastAPI(
     title="CandorLens API",
     version="0.1.0",
     description="Backend API for CandorLens (reports, OCR, ML, etc.)",
+    lifespan=lifespan,
 )
 
 # --- CORS CONFIG -------------------------------------------------
@@ -36,7 +49,7 @@ async def root():
 
 @app.post("/report")
 async def api_save_report(report: Report):
-    """Save a report to Azure Blob Storage."""
+    """Save a report (Azure Blob or local, per REPORT_STORAGE_BACKEND)."""
     save_report(report.url, report.model_dump())
     return {"status": "ok"}
 
@@ -48,3 +61,7 @@ async def api_get_report(url: str):
     if not data:
         raise HTTPException(status_code=404, detail="Report not found")
     return data
+
+
+# Analyze routes (BERT + Legal Mapper)
+app.include_router(analyze.router)
