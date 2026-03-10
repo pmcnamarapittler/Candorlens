@@ -1,0 +1,5 @@
+{
+  "name": "CandorLens",
+  "description": "Compliance audits for subscription interfaces. Scan checkout, signup, and cancellation flows for FTC and ROSCA violations.",
+  "requestFramePermissions": []
+}
