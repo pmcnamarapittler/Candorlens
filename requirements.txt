@@ -27,6 +27,9 @@ opencv-python>=4.9.0
 # === Cloud Storage ===
 azure-storage-blob>=12.19.0
 
+# === Report Generation ===
+reportlab>=4.2.0
+
 # === Development ===
 pytest>=7.4.0
 black>=24.1.0

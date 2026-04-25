@@ -102,13 +102,100 @@ Analyze an array of language events (e.g. from a flow). Returns aggregated findi
   - `total_events`: number of findings
   - `summary`: counts by `attack_class`, e.g. `{ "forced_continuity": 1, "false_urgency": 1 }`
 
+### POST /collect-flow
+
+Collect website-specific page text and CTA language with Playwright to prepare events
+for `/analyze-flow`.
+
+**Request body:**
+
+```json
+{
+  "website_url": "https://example.com",
+  "max_steps": 8
+}
+```
+
+**Response:**
+- `events`: list of `{ text, flow_id, flow_step, url?, page_title? }`
+- `discovered_flows`: runtime discovered flow summary metadata
+- `pages_discovered`: number of visited pages used to build events
+
 ---
 
-## Other endpoints
+## Report endpoints
+
+### POST /report
+
+Save a JSON report payload keyed by URL.
+
+**Request body:**
+
+```json
+{
+  "url": "https://example.com",
+  "summary": "Potential ROSCA risk detected in checkout CTA copy.",
+  "labels": ["forced_continuity", "high_risk"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### GET /report?url=...
+
+Retrieve a previously stored JSON report for a URL.
+
+- Query parameter `url` must be a valid absolute URL.
+- Returns `404` if no report is found.
+
+### POST /generate-report
+
+Generate a compliance PDF report from a structured findings payload.
+
+**Request body:**
+
+```json
+{
+  "website_url": "https://example.com",
+  "company_name": "Example Inc.",
+  "findings": [
+    {
+      "id": "evt_20260425_001",
+      "title": "Forced Continuity Language",
+      "severity": "HIGH",
+      "regulation": "ROSCA",
+      "confidence": 0.9,
+      "description": "Auto-renewal disclosure missing above CTA",
+      "extracted_text": "Start your free trial now",
+      "remediation_guidance": "Disclose recurring terms before consent."
+    }
+  ]
+}
+```
+
+Validation notes:
+- `website_url` must be a valid absolute URL.
+- `company_name` is required (1-240 chars).
+- `findings` must contain at least one item.
+- `severity` must be one of `HIGH`, `MEDIUM`, or `LOW`.
+- `confidence` must be between `0.0` and `1.0` when provided.
+
+**Response:**
+- Content-Type: `application/pdf`
+- Binary PDF body with filename `candorlens_report.pdf`
+- Rendering: browser-rendered HTML-to-PDF (Playwright) with automatic fallback renderer if browser runtime is unavailable.
+
+---
+
+## Other endpoint
 
 - **GET /** — Health check (`{"status": "ok"}`).
-- **POST /report** — Save a report (URL, summary, labels) to Azure Blob Storage.
-- **GET /report?url=...** — Retrieve a report by URL.
 
 ---
 

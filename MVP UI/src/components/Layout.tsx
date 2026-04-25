@@ -55,8 +55,10 @@ export default function Layout({ children, activeTab, setActiveTab, findingsCoun
         isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center">
-            <img src="/logo.png" alt="CandorLens" className="h-7 w-auto" referrerPolicy="no-referrer" />
+          <div className="flex items-center gap-2 text-[20px] font-light tracking-[-0.02em] text-[#111]">
+            <div className="w-5 h-5 rounded-full border border-[#111]" />
+            <span className="font-medium">candor</span>
+            <span>lens</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 text-[#888]">
             <X size={18} />
@@ -109,7 +111,11 @@ export default function Layout({ children, activeTab, setActiveTab, findingsCoun
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0] bg-white">
-          <img src="/logo.png" alt="CandorLens" className="h-6 w-auto" referrerPolicy="no-referrer" />
+          <div className="flex items-center gap-2 text-[18px] font-light tracking-[-0.02em] text-[#111]">
+            <div className="w-4 h-4 rounded-full border border-[#111]" />
+            <span className="font-medium">candor</span>
+            <span>lens</span>
+          </div>
           <button onClick={toggleSidebar} className="p-1 text-[#111]">
             <Menu size={20} />
           </button>

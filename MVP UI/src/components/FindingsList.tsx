@@ -17,11 +17,11 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const MOCK_SUMMARY: AuditSummary = {
-  website: 'acme-saas.com',
-  date: 'February 14, 2026',
-  pagesScanned: 12,
-  score: 30
+const DEFAULT_SUMMARY: AuditSummary = {
+  website: 'example.com',
+  date: new Date().toLocaleDateString(),
+  pagesScanned: 0,
+  score: 100,
 };
 
 const MOCK_FINDINGS: Finding[] = [
@@ -153,7 +153,9 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
   const [flowFilter, setFlowFilter] = useState('All Flows');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
-  const displayUrl = onboardingData?.websiteUrl || MOCK_SUMMARY.website;
+  const displayUrl = onboardingData?.websiteUrl || DEFAULT_SUMMARY.website;
+  const pagesScanned = new Set(findings.map((f) => f.page)).size;
+  const score = Math.max(0, 100 - findings.length * 10);
 
   const filteredFindings = findings.filter(f => {
     if (filter === 'High') return f.severity === 'HIGH';
@@ -195,7 +197,7 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
               </div>
               <div>
                 <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium">Audit Date</p>
-                <p className="text-[13px] font-medium text-[#111]">{MOCK_SUMMARY.date}</p>
+                <p className="text-[13px] font-medium text-[#111]">{new Date().toLocaleDateString()}</p>
               </div>
             </div>
 
@@ -205,13 +207,13 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
               </div>
               <div>
                 <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium">Pages Scanned</p>
-                <p className="text-[13px] font-medium text-[#111]">{MOCK_SUMMARY.pagesScanned} pages</p>
+                <p className="text-[13px] font-medium text-[#111]">{pagesScanned} pages</p>
               </div>
             </div>
           </div>
 
           <div className="text-right">
-            <p className="text-[28px] font-light text-[#dc2626] leading-none">{MOCK_SUMMARY.score}</p>
+            <p className="text-[28px] font-light text-[#dc2626] leading-none">{score}</p>
             <p className="text-[9px] uppercase tracking-widest text-[#bbb] font-medium mt-1">Score</p>
           </div>
         </div>
@@ -244,6 +246,11 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
 
         {/* Findings List */}
         <div className="space-y-4">
+          {!filteredFindings.length && (
+            <div className="bg-white border border-[#f0f0f0] rounded-xl p-6 text-sm text-[#6b7280]">
+              No findings yet. Run a scan from the Overview tab to populate this list.
+            </div>
+          )}
           {filteredFindings.map((finding) => (
             <div 
               key={finding.id} 

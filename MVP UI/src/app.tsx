@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { CheckCircle, FileText } from 'lucide-react';
 import Layout from './components/Layout';
 import DashboardHome from './components/DashboardHome';
-import AuditDetails from './components/AuditDetails';
 import FindingsList from './components/FindingsList';
 import FindingDetail from './components/FindingDetail';
 import RemediationTracker from './components/RemediationTracker';
@@ -10,117 +8,22 @@ import OnboardingFlow from './components/OnboardingFlow';
 import ReportView from './components/ReportView';
 import ReAuditView from './components/ReAuditView';
 import { Finding } from './types';
+import { generateReportPdf } from './services/apiClient';
+import { scannerService } from './services/scannerService';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
+  const [allFindings, setAllFindings] = useState<Finding[]>([]);
+  const [appError, setAppError] = useState<string | null>(null);
+  const [isHydratingFromOnboarding, setIsHydratingFromOnboarding] = useState(false);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setSelectedFinding(null);
   };
-
-  // Mock findings for navigation in detail view
-  const [allFindings, setAllFindings] = useState<Finding[]>([
-    {
-      id: '1',
-      code: 'FA-01',
-      title: 'Forced Consent — No Dismiss Option',
-      description: 'Modal blocks content access until user agrees to data collection. No alternative provided.',
-      severity: 'HIGH',
-      regulation: 'ROSCA',
-      page: '/checkout',
-      flow: 'Checkout',
-      element: 'Consent Modal',
-      status: 'Open',
-      confidence: 90,
-      whySeverity: 'Violates FTC Act Section 5 — conditions content access on data collection consent with no alternative',
-      explanation: 'A modal that blocks access to the website until the user consents to data collection. No dismiss option, decline button, or preference management is provided.',
-      extractedText: 'By clicking \"Agree\", you have read and agree to the Terms of Use and agree to the collection and use of your information...',
-      regulationSection: 'FTC Act Section 5',
-      legalExcerpt: 'Unfair methods of competition in or affecting commerce, and unfair or deceptive acts or practices in or affecting commerce, are hereby declared unlawful.',
-      violationReason: 'Forced Consent bundles unrelated permissions (content access + data collection) into a single non-negotiable action, eliminating user choice. Consumers cannot reasonably avoid the harm without forgoing the service entirely.'
-    },
-    {
-      id: '2',
-      code: 'FCL-02',
-      title: 'Missing Auto-Renewal Disclosure',
-      description: 'Free trial signup does not disclose automatic conversion to paid subscription.',
-      severity: 'HIGH',
-      regulation: 'ROSCA',
-      page: '/signup/trial',
-      flow: 'Signup',
-      element: 'Trial CTA',
-      status: 'In Progress',
-      confidence: 94,
-      whySeverity: 'ROSCA violation — failure to clearly and conspicuously disclose all material terms of a negative option feature.',
-      explanation: 'The signup flow offers a "Free Trial" but fails to disclose that the user will be automatically charged $29.99/month after 7 days unless they cancel.',
-      extractedText: 'Start your 7-day free trial now. No commitment.',
-      regulationSection: 'ROSCA Section 4',
-      legalExcerpt: 'It shall be unlawful for any person to charge or attempt to charge any consumer for any goods or services sold in a transaction effected on the Internet through a negative option feature...',
-      violationReason: 'The disclosure of the auto-renewal and the amount of the recurring charge is hidden in the Terms of Service and not presented at the point of sale.'
-    },
-    {
-      id: '3',
-      code: 'FAT-03',
-      title: 'No Simple Cancellation Method',
-      description: 'Cancellation requires phone call to support. No online self-service option.',
-      severity: 'HIGH',
-      regulation: 'ROSCA',
-      page: '/account/cancel',
-      flow: 'Cancellation',
-      element: 'Cancel Button',
-      status: 'Open',
-      confidence: 88,
-      whySeverity: 'ROSCA violation — failure to provide simple mechanisms for a consumer to stop recurring charges.',
-      explanation: 'Users are forced to call a support number during specific business hours to cancel their subscription, creating a "roach motel" pattern.',
-      extractedText: 'To cancel your subscription, please call our support team at 1-800-555-0199.',
-      regulationSection: 'ROSCA Section 4(3)',
-      legalExcerpt: 'The person must provide simple mechanisms for a consumer to stop recurring charges from being placed on the consumer’s credit card, debit card, bank account, or other financial account.',
-      violationReason: 'Requiring a phone call for a service that was purchased online is not a "simple mechanism" as defined by recent FTC guidance.'
-    },
-    {
-      id: '4',
-      code: 'FU-04',
-      title: 'False Urgency — Resetting Countdown',
-      description: 'Countdown timer showing "Offer expires" resets on page refresh.',
-      severity: 'MEDIUM',
-      regulation: 'FU-04',
-      page: '/pricing',
-      flow: 'Pricing',
-      element: 'Timer Banner',
-      status: 'Open',
-      confidence: 92,
-      whySeverity: 'Deceptive practice — creates a false sense of scarcity or urgency to pressure a purchase.',
-      explanation: 'A banner at the top of the pricing page shows a countdown timer that resets to 10:00 every time the page is reloaded.',
-      extractedText: 'Special offer ends in 09:58. Act now!',
-      regulationSection: 'FTC Act Section 5(a)',
-      legalExcerpt: 'Unfair or deceptive acts or practices in or affecting commerce are declared unlawful.',
-      violationReason: 'The timer is a "dark pattern" designed to deceive consumers about the availability of a discount.'
-    },
-    {
-      id: '5',
-      code: 'FU-05',
-      title: 'Deceptive Feature Comparison',
-      description: '"Unlimited" plan has severe usage caps disclosed only in fine print.',
-      severity: 'MEDIUM',
-      regulation: 'FU-05',
-      page: '/pricing',
-      flow: 'Pricing',
-      element: 'Feature Matrix',
-      status: 'In Progress',
-      confidence: 78,
-      whySeverity: 'Misleading advertising — material limitations on "unlimited" claims are not clearly disclosed.',
-      explanation: 'The "Unlimited" plan is marketed as having no limits, but a tiny footnote reveals a 5GB "fair use" cap.',
-      extractedText: 'Unlimited Data* (*Subject to fair use policy)',
-      regulationSection: 'FTC Deception Policy Statement',
-      legalExcerpt: 'An ad is deceptive if it contains a representation or omission that is likely to mislead consumers acting reasonably under the circumstances.',
-      violationReason: 'The term "unlimited" is used prominently while the actual limitation is buried in a way that most users will miss.'
-    }
-  ]);
 
   const handleStatusChange = (id: string, status: Finding['status']) => {
     setAllFindings(prev => prev.map(f => f.id === id ? { ...f, status } : f));
@@ -130,8 +33,61 @@ export default function App() {
   };
 
   const handleScanComplete = (newFindings: Finding[]) => {
+    setAppError(null);
     setAllFindings(prev => [...newFindings, ...prev]);
     handleTabChange('findings');
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      const payload = {
+        website_url: onboardingData?.websiteUrl || 'https://example.com',
+        company_name: onboardingData?.companyName || 'CandorLens Client',
+        findings: allFindings.map((finding) => ({
+          id: finding.id,
+          title: finding.title,
+          severity: finding.severity,
+          regulation: finding.regulation,
+          confidence: finding.confidence / 100,
+          description: finding.description,
+          extracted_text: finding.extractedText,
+          remediation_guidance: finding.violationReason,
+        })),
+      };
+
+      const blob = await generateReportPdf(payload);
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = 'candorlens_report.pdf';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Failed to download report PDF:', error);
+      setAppError('Failed to download PDF report. Please try again.');
+    }
+  };
+
+  const handleInitialOnboardingComplete = async (data: any) => {
+    setOnboardingData(data);
+    setIsLoggedIn(true);
+    setIsHydratingFromOnboarding(true);
+    setAppError(null);
+
+    try {
+      const initialResult = await scannerService.scanUrl(data.websiteUrl);
+      setAllFindings(initialResult.findings);
+      setActiveTab('findings');
+    } catch (error) {
+      console.error('Initial scan failed:', error);
+      setAllFindings([]);
+      setAppError('Initial scan failed. Use the Overview tab to retry with a page URL.');
+      setActiveTab('overview');
+    } finally {
+      setIsHydratingFromOnboarding(false);
+    }
   };
 
   const renderContent = () => {
@@ -162,18 +118,14 @@ export default function App() {
     switch (activeTab) {
       case 'overview':
         return (
-          <AuditDetails 
-            auditId="1" 
-            onBack={() => {}} 
-            isDashboard={true} 
-            onSelectFinding={(id) => {
-              const finding = allFindings.find(f => f.id === id);
-              if (finding) setSelectedFinding(finding);
-            }}
-            onViewAllFindings={() => handleTabChange('findings')}
+          <DashboardHome
+            findings={allFindings}
             onboardingData={onboardingData}
-            onScheduleReAudit={() => handleTabChange('reaudit')}
-            onViewReport={() => handleTabChange('report')}
+            onScanComplete={handleScanComplete}
+            onGoToFindings={() => handleTabChange('findings')}
+            onDownloadPdf={handleDownloadPdf}
+            appError={appError}
+            onClearError={() => setAppError(null)}
           />
         );
       case 'findings':
@@ -197,7 +149,9 @@ export default function App() {
         return (
           <ReportView 
             onboardingData={onboardingData} 
+            findings={allFindings}
             onScheduleReAudit={() => handleTabChange('reaudit')}
+            onDownloadPdf={handleDownloadPdf}
           />
         );
       case 'reaudit':
@@ -210,28 +164,34 @@ export default function App() {
         );
       default:
         return (
-          <AuditDetails 
-            auditId="1" 
-            onBack={() => {}} 
-            isDashboard={true} 
-            onSelectFinding={(id) => {
-              const finding = allFindings.find(f => f.id === id);
-              if (finding) setSelectedFinding(finding);
-            }}
-            onViewAllFindings={() => handleTabChange('findings')}
+          <DashboardHome
+            findings={allFindings}
             onboardingData={onboardingData}
-            onScheduleReAudit={() => handleTabChange('reaudit')}
-            onViewReport={() => handleTabChange('report')}
+            onScanComplete={handleScanComplete}
+            onGoToFindings={() => handleTabChange('findings')}
+            onDownloadPdf={handleDownloadPdf}
+            appError={appError}
+            onClearError={() => setAppError(null)}
           />
         );
     }
   };
 
   if (!isLoggedIn) {
-    return <OnboardingFlow onComplete={(data) => {
-      setOnboardingData(data);
-      setIsLoggedIn(true);
-    }} />;
+    return (
+      <OnboardingFlow
+        onComplete={handleInitialOnboardingComplete}
+        onDiscoverFlows={(websiteUrl) => scannerService.discoverFlows(websiteUrl)}
+      />
+    );
+  }
+
+  if (isHydratingFromOnboarding) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white text-[#111] text-sm">
+        Running initial compliance scan...
+      </div>
+    );
   }
 
   return (

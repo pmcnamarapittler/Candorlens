@@ -66,3 +66,13 @@ python -m ml.data.validate_jsonl data/annotated/events.jsonl --use-d2-loader --s
 | `scripts/annotate.py` | Manual annotation |
 | `scripts/load_events.py` | JSONL loader |
 | `ml/data/validate_jsonl.py` | JSONL validator |
+
+---
+
+## D4.5-D7 handoff references
+
+- API contract and endpoint usage: `docs/API.md`
+- Deployment and Azure verification path: `docs/DEPLOYMENT.md`
+- Milestone evidence mapping: `docs/MILESTONE_EVIDENCE.md`
+- Final handoff checklist: `docs/HANDOFF_CHECKLIST.md`
+- Stakeholder demo walkthrough: `docs/DEMO_SCRIPT.md`

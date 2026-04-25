@@ -43,7 +43,7 @@ export default function FindingDetail({
   onboardingData
 }: FindingDetailProps) {
   const [isStatusOpen, setIsStatusOpen] = useState(false);
-  const displayUrl = onboardingData?.websiteUrl || 'acme-saas.com';
+  const displayUrl = onboardingData?.websiteUrl || 'N/A';
   return (
     <div className="flex flex-col min-h-full bg-[#fcfcfc]">
       {/* Header */}

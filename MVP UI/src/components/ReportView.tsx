@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Finding } from '../types';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -18,15 +19,24 @@ function cn(...inputs: ClassValue[]) {
 interface ReportViewProps {
   onboardingData?: any;
   onScheduleReAudit?: () => void;
+  onDownloadPdf?: () => void;
+  findings?: Finding[];
 }
 
-export default function ReportView({ onboardingData, onScheduleReAudit }: ReportViewProps) {
-  const companyName = onboardingData?.companyName || 'Acme SaaS, Inc.';
+export default function ReportView({ onboardingData, onScheduleReAudit, onDownloadPdf, findings = [] }: ReportViewProps) {
+  const companyName = onboardingData?.companyName || 'Client';
+  const website = onboardingData?.websiteUrl || 'N/A';
   const today = new Date().toLocaleDateString('en-US', { 
     month: 'long', 
     day: 'numeric', 
     year: 'numeric' 
   });
+  const high = findings.filter((f) => f.severity === 'HIGH').length;
+  const medium = findings.filter((f) => f.severity === 'MEDIUM').length;
+  const low = findings.filter((f) => f.severity === 'LOW').length;
+  const pagesScanned = new Set(findings.map((f) => f.page)).size;
+  const regulations = Array.from(new Set(findings.map((f) => f.regulation))).slice(0, 6);
+  const topFindings = findings.slice(0, 10);
 
   return (
     <div className="flex flex-col min-h-full bg-[#f8f9fa]">
@@ -40,7 +50,10 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
           <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#eee] text-[#555] text-[11px] font-medium rounded-md hover:bg-[#f5f5f5] transition-all">
             <Share2 size={14} /> Share
           </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[11px] font-medium rounded-md hover:bg-[#333] transition-all">
+          <button
+            onClick={onDownloadPdf}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[11px] font-medium rounded-md hover:bg-[#333] transition-all"
+          >
             <Download size={14} /> Download PDF
           </button>
         </div>
@@ -52,7 +65,11 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
           {/* Doc Header */}
           <div className="flex justify-between items-start mb-12">
             <div className="flex items-center">
-              <img src="/logo.png" alt="CandorLens" className="h-7 w-auto" referrerPolicy="no-referrer" />
+              <div className="flex items-center gap-2 text-[18px] font-light tracking-[-0.02em] text-[#111]">
+                <div className="w-4 h-4 rounded-full border border-[#111]" />
+                <span className="font-medium">candor</span>
+                <span>lens</span>
+              </div>
             </div>
             <div className="text-right space-y-1">
               <div className="flex justify-end gap-4 text-[10px] uppercase tracking-wider text-[#bbb]">
@@ -66,6 +83,10 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
               <div className="flex justify-end gap-4 text-[10px] uppercase tracking-wider text-[#bbb]">
                 <span>Client</span>
                 <span className="text-[#111] font-medium">{companyName}</span>
+              </div>
+              <div className="flex justify-end gap-4 text-[10px] uppercase tracking-wider text-[#bbb]">
+                <span>Website</span>
+                <span className="text-[#111] font-medium">{website}</span>
               </div>
             </div>
           </div>
@@ -82,13 +103,13 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
             <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#bbb] mb-6">Executive Summary</h3>
             <div className="grid grid-cols-4 gap-px bg-[#f0f0f0] border border-[#f0f0f0]">
               {[
-                { label: 'Total Violations', value: '5', color: 'text-[#111]' },
-                { label: 'High Severity', value: '3', color: 'text-[#dc2626]' },
-                { label: 'Medium Severity', value: '2', color: 'text-[#f59e0b]' },
-                { label: 'Pages Scanned', value: '12', color: 'text-[#3b82f6]' },
+                { label: 'Total Violations', value: String(findings.length), color: 'text-[#111]' },
+                { label: 'High Severity', value: String(high), color: 'text-[#dc2626]' },
+                { label: 'Medium Severity', value: String(medium), color: 'text-[#f59e0b]' },
+                { label: 'Pages Scanned', value: String(pagesScanned), color: 'text-[#3b82f6]' },
               ].map((stat, i) => (
                 <div key={i} className="bg-[#fafafa] p-6 text-center">
-                  <p className="text-[32px] font-light mb-1 mt-2 {stat.color}">{stat.value}</p>
+                  <p className={cn("text-[32px] font-light mb-1 mt-2", stat.color)}>{stat.value}</p>
                   <p className="text-[9px] font-medium uppercase tracking-wider text-[#bbb]">{stat.label}</p>
                 </div>
               ))}
@@ -103,7 +124,9 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
             <div>
               <h4 className="text-[13px] font-medium text-[#dc2626] mb-1">High Risk — Immediate Remediation Recommended</h4>
               <p className="text-[12px] text-red-900/70 leading-relaxed">
-                Multiple ROSCA violations detected. These patterns mirror language from recent FTC enforcement actions resulting in significant penalties.
+                {high > 0
+                  ? `Detected ${high} high-severity findings. Immediate remediation is recommended.`
+                  : 'No high-severity findings detected in this scan.'}
               </p>
             </div>
           </div>
@@ -121,27 +144,26 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
                 </tr>
               </thead>
               <tbody className="text-[12px]">
-                {[
-                  { severity: 'HIGH', type: 'FCL', finding: 'Missing Affirmative Consent for Auto-Renewal', location: '/checkout' },
-                  { severity: 'HIGH', type: 'FAT', finding: 'No Simple Online Cancellation Method', location: '/cancel' },
-                  { severity: 'HIGH', type: 'FCL', finding: 'Hidden Auto-Renewal in Terms Only', location: '/checkout' },
-                  { severity: 'MEDIUM', type: 'FU', finding: 'Deceptive Feature Matrix Comparison', location: '/pricing' },
-                  { severity: 'MEDIUM', type: 'FU', finding: 'False Urgency Countdown Timer', location: '/checkout' },
-                ].map((row, i) => (
+                {topFindings.map((row, i) => (
                   <tr key={i} className="border-b border-[#f9f9f9]">
                     <td className="py-4">
                       <span className={cn(
                         "text-[9px] font-medium px-2 py-0.5 rounded uppercase tracking-wider",
-                        row.severity === 'HIGH' ? "bg-red-50 text-[#dc2626]" : "bg-amber-50 text-[#f59e0b]"
+                        row.severity === 'HIGH' ? "bg-red-50 text-[#dc2626]" : row.severity === 'MEDIUM' ? "bg-amber-50 text-[#f59e0b]" : "bg-blue-50 text-blue-600"
                       )}>
                         {row.severity}
                       </span>
                     </td>
-                    <td className="py-4 font-medium text-[#555]">{row.type}</td>
-                    <td className="py-4 text-[#111]">{row.finding}</td>
-                    <td className="py-4 text-right text-[#888] font-mono">{row.location}</td>
+                    <td className="py-4 font-medium text-[#555]">{row.code}</td>
+                    <td className="py-4 text-[#111]">{row.title}</td>
+                    <td className="py-4 text-right text-[#888] font-mono">{row.page}</td>
                   </tr>
                 ))}
+                {!topFindings.length && (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-[#888]">No findings available.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </section>
@@ -150,18 +172,19 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
           <section>
             <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#bbb] mb-6">Applicable Regulations</h3>
             <div className="space-y-4">
-              <div className="p-4 bg-[#f9f9f9] rounded flex gap-4">
-                <span className="text-[9px] font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded h-fit">ROSCA</span>
-                <p className="text-[11px] text-[#555] leading-relaxed">
-                  15 U.S.C. § 8403 — Restore Online Shoppers' Confidence Act requiring clear disclosure and affirmative consent for negative option offers
-                </p>
-              </div>
-              <div className="p-4 bg-[#f9f9f9] rounded flex gap-4">
-                <span className="text-[9px] font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded h-fit">FTC Act</span>
-                <p className="text-[11px] text-[#555] leading-relaxed">
-                  15 U.S.C. § 45 — Section 5 prohibition against unfair or deceptive acts or practices in commerce
-                </p>
-              </div>
+              {regulations.map((regulation) => (
+                <div key={regulation} className="p-4 bg-[#f9f9f9] rounded flex gap-4">
+                  <span className="text-[9px] font-medium bg-blue-50 text-blue-600 px-2 py-0.5 rounded h-fit">{regulation}</span>
+                  <p className="text-[11px] text-[#555] leading-relaxed">
+                    Refer to mapped legal citation in finding details for this regulation.
+                  </p>
+                </div>
+              ))}
+              {!regulations.length && (
+                <div className="p-4 bg-[#f9f9f9] rounded text-[11px] text-[#555]">
+                  No regulation mappings available yet.
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -171,7 +194,10 @@ export default function ReportView({ onboardingData, onScheduleReAudit }: Report
           <div className="bg-white p-6 border border-[#eee] rounded-lg shadow-sm">
             <h4 className="text-[10px] font-medium uppercase tracking-wider text-[#bbb] mb-6">Export Options</h4>
             <div className="space-y-2">
-              <button className="w-full flex items-center justify-center gap-2 py-3 bg-[#111] text-white text-[11px] font-medium uppercase tracking-widest rounded hover:bg-[#333] transition-all">
+              <button
+                onClick={onDownloadPdf}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-[#111] text-white text-[11px] font-medium uppercase tracking-widest rounded hover:bg-[#333] transition-all"
+              >
                 <Download size={14} /> Download PDF
               </button>
               <button className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-[#eee] text-[#555] text-[11px] font-medium uppercase tracking-widest rounded hover:bg-[#f5f5f5] transition-all">

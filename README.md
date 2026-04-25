@@ -138,7 +138,7 @@ candorlens/
 │   ├── api/                     # FastAPI routes
 │   ├── services/                # Legal mapper, report generator
 │   └── models/                  # Pydantic schemas
-├── dashboard/                   # React frontend
+├── MVP UI/                      # React frontend (current MVP dashboard)
 ├── data/
 │   ├── raw/                     # Raw collected flows
 │   ├── annotated/               # Labeled JSONL files
@@ -185,7 +185,7 @@ cd backend
 uvicorn api.main:app --reload
 
 # In another terminal, start the dashboard
-cd dashboard
+cd "MVP UI"
 npm install
 npm run dev
 ```
@@ -220,9 +220,21 @@ See [`docs/ONBOARDING.md`](docs/ONBOARDING.md) for the complete getting-started 
 | `/analyze-text` | POST | Analyze raw text for illegal patterns |
 | `/analyze-flow` | POST | Analyze a multi-step user flow |
 | `/generate-report` | POST | Generate PDF compliance report |
-| `/health` | GET | Health check |
+| `/report` | POST/GET | Save/retrieve JSON report payload by URL |
+| `/` | GET | Health check |
 
 See [`docs/API.md`](docs/API.md) for full documentation.
+Deployment runbook: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+CI workflows:
+- `.github/workflows/backend-ci.yml`
+- `.github/workflows/frontend-ci.yml`
+- `.github/workflows/deploy-azure.yml`
+
+Handoff docs:
+- `docs/MILESTONE_EVIDENCE.md`
+- `docs/HANDOFF_CHECKLIST.md`
+- `docs/DEMO_SCRIPT.md`
 
 ---
 

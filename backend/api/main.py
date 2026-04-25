@@ -1,12 +1,10 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
-from backend.api.routes import analyze
+from backend.api.routes import analyze, report
 from backend.services.bert_classifier import get_classifier
-from backend.services.blob_reports import get_report, save_report
 
 
 @asynccontextmanager
@@ -36,32 +34,11 @@ app.add_middleware(
 # -----------------------------------------------------------------
 
 
-class Report(BaseModel):
-    url: str
-    summary: str
-    labels: list[str] = []
-
-
 @app.get("/")
 async def root():
     return {"status": "ok"}
 
 
-@app.post("/report")
-async def api_save_report(report: Report):
-    """Save a report (Azure Blob or local, per REPORT_STORAGE_BACKEND)."""
-    save_report(report.url, report.model_dump())
-    return {"status": "ok"}
-
-
-@app.get("/report")
-async def api_get_report(url: str):
-    """Get a report by URL."""
-    data = get_report(url)
-    if not data:
-        raise HTTPException(status_code=404, detail="Report not found")
-    return data
-
-
 # Analyze routes (BERT + Legal Mapper)
 app.include_router(analyze.router)
+app.include_router(report.router)

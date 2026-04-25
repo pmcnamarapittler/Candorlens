@@ -25,6 +25,10 @@ function cn(...inputs: ClassValue[]) {
 
 interface OnboardingFlowProps {
   onComplete: (data: any) => void;
+  onDiscoverFlows?: (websiteUrl: string) => Promise<{
+    discoveredFlows: Array<{ id: string; title: string; path: string; risk_hint: string }>;
+    pagesDiscovered: number;
+  }>;
 }
 
 function ShutterIcon({ className, size = 24 }: { className?: string, size?: number }) {
@@ -51,8 +55,10 @@ function ShutterIcon({ className, size = 24 }: { className?: string, size?: numb
 
 function Logo() {
   return (
-    <div className="flex items-center">
-      <img src="/logo.png" alt="CandorLens" className="h-8 w-auto" referrerPolicy="no-referrer" />
+    <div className="flex items-center gap-2 text-[22px] font-light tracking-[-0.02em] text-[#111]">
+      <ShutterIcon size={22} className="text-[#111]" />
+      <span className="font-medium">candor</span>
+      <span>lens</span>
     </div>
   );
 }
@@ -67,17 +73,19 @@ function LineLogo() {
   );
 }
 
-export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+export default function OnboardingFlow({ onComplete, onDiscoverFlows }: OnboardingFlowProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    firstName: 'Jane',
-    lastName: 'Smith',
-    companyName: 'Acme SaaS, Inc.',
-    websiteUrl: 'https://example.com',
-    workEmail: 'jane@company.com'
+    firstName: '',
+    lastName: '',
+    companyName: '',
+    websiteUrl: '',
+    workEmail: ''
   });
 
   const [selectedFlows, setSelectedFlows] = useState<string[]>(['checkout', 'pricing', 'cancellation']);
+  const [discoveredFlows, setDiscoveredFlows] = useState<Array<{ id: string; title: string; path: string; risk_hint: string }>>([]);
+  const [pagesDiscovered, setPagesDiscovered] = useState(0);
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
@@ -94,13 +102,28 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         );
       case 1.5:
         return (
-          <FlowDiscoveryLoading onComplete={() => setStep(2)} />
+          <FlowDiscoveryLoading
+            websiteUrl={formData.websiteUrl}
+            onDiscoverFlows={onDiscoverFlows}
+            onDiscovered={(result) => {
+              setDiscoveredFlows(result.discoveredFlows || []);
+              setPagesDiscovered(result.pagesDiscovered || 0);
+              const suggested = (result.discoveredFlows || []).slice(0, 5).map((flow) => flow.id);
+              if (suggested.length) {
+                setSelectedFlows(suggested);
+              }
+            }}
+            onComplete={() => setStep(2)}
+          />
         );
       case 2:
         return (
           <Step2 
             selectedFlows={selectedFlows} 
             setSelectedFlows={setSelectedFlows} 
+            websiteUrl={formData.websiteUrl}
+            discoveredFlows={discoveredFlows}
+            pagesDiscovered={pagesDiscovered}
             onNext={handleNext} 
             onBack={() => setStep(1)} 
           />
@@ -157,6 +180,7 @@ function Step1({ formData, setFormData, onNext }: any) {
                 <input 
                   type="text" 
                   value={formData.firstName}
+                  placeholder="Jane"
                   onChange={e => setFormData({...formData, firstName: e.target.value})}
                   className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
                 />
@@ -166,6 +190,7 @@ function Step1({ formData, setFormData, onNext }: any) {
                 <input 
                   type="text" 
                   value={formData.lastName}
+                  placeholder="Smith"
                   onChange={e => setFormData({...formData, lastName: e.target.value})}
                   className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
                 />
@@ -177,6 +202,7 @@ function Step1({ formData, setFormData, onNext }: any) {
               <input 
                 type="text" 
                 value={formData.companyName}
+                placeholder="Acme SaaS, Inc."
                 onChange={e => setFormData({...formData, companyName: e.target.value})}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
@@ -187,6 +213,7 @@ function Step1({ formData, setFormData, onNext }: any) {
               <input 
                 type="text" 
                 value={formData.websiteUrl}
+                placeholder="https://example.com"
                 onChange={e => setFormData({...formData, websiteUrl: e.target.value})}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
@@ -198,6 +225,7 @@ function Step1({ formData, setFormData, onNext }: any) {
               <input 
                 type="email" 
                 value={formData.workEmail}
+                placeholder="jane@company.com"
                 onChange={e => setFormData({...formData, workEmail: e.target.value})}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
@@ -230,11 +258,25 @@ function Step1({ formData, setFormData, onNext }: any) {
   );
 }
 
-function FlowDiscoveryLoading({ onComplete }: any) {
+function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onComplete }: any) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Initializing crawler...');
 
   useEffect(() => {
+    let cancelled = false;
+    const runDiscovery = async () => {
+      if (!onDiscoverFlows || !websiteUrl) return;
+      try {
+        const result = await onDiscoverFlows(websiteUrl);
+        if (!cancelled && onDiscovered) {
+          onDiscovered(result);
+        }
+      } catch {
+        // Keep UX moving with fallback defaults if discovery fails.
+      }
+    };
+    runDiscovery();
+
     const timer = setInterval(() => {
       setProgress(p => {
         if (p >= 100) {
@@ -263,10 +305,11 @@ function FlowDiscoveryLoading({ onComplete }: any) {
     }, 600);
 
     return () => {
+      cancelled = true;
       clearInterval(timer);
       clearInterval(statusTimer);
     };
-  }, [onComplete]);
+  }, [onComplete, onDiscoverFlows, onDiscovered, websiteUrl]);
 
   return (
     <div className="flex flex-col items-center justify-center py-10 sm:py-20 text-center">
@@ -293,8 +336,12 @@ function FlowDiscoveryLoading({ onComplete }: any) {
   );
 }
 
-function Step2({ selectedFlows, setSelectedFlows, onNext, onBack }: any) {
-  const flows = [
+function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, pagesDiscovered, onNext, onBack }: any) {
+  const normalizedWebsite = (websiteUrl || '').trim();
+  const websiteHost = normalizedWebsite
+    ? normalizedWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    : 'your-site.com';
+  const fallbackFlows = [
     { id: 'checkout', title: 'Checkout Flow', paths: '/checkout, /cart, /payment, /confirmation', risk: 'HIGH RISK', icon: ShoppingCart },
     { id: 'pricing', title: 'Pricing & Plans', paths: '/pricing, /plans, /compare', risk: 'HIGH RISK', icon: CreditCard },
     { id: 'cancellation', title: 'Cancellation Flow', paths: '/account/cancel, /downgrade', risk: 'HIGH RISK', icon: XCircle },
@@ -302,6 +349,15 @@ function Step2({ selectedFlows, setSelectedFlows, onNext, onBack }: any) {
     { id: 'settings', title: 'Account Settings', paths: '/account, /settings, /billing', risk: 'MEDIUM RISK', icon: Settings },
     { id: 'email', title: 'Email Preferences', paths: '/unsubscribe, /preferences', risk: 'LOW RISK', icon: Mail },
   ];
+  const flows = (discoveredFlows && discoveredFlows.length)
+    ? discoveredFlows.map((f: any) => ({
+        id: f.id,
+        title: f.title,
+        paths: f.path,
+        risk: `${(f.risk_hint || 'MEDIUM').toUpperCase()} RISK`,
+        icon: Globe,
+      }))
+    : fallbackFlows;
 
   const toggleFlow = (id: string) => {
     if (selectedFlows.includes(id)) {
@@ -325,7 +381,7 @@ function Step2({ selectedFlows, setSelectedFlows, onNext, onBack }: any) {
             <Check size={16} />
           </div>
           <p className="text-[13px] text-emerald-800">
-            Found <span className="font-medium">47 pages</span> across <span className="font-medium">8 flows</span> on acme-saas.com
+            Found <span className="font-medium">{pagesDiscovered || 0} pages</span> across <span className="font-medium">{flows.length}</span> flows on {websiteHost}
           </p>
         </div>
 
@@ -395,13 +451,13 @@ function Step2({ selectedFlows, setSelectedFlows, onNext, onBack }: any) {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <Globe size={18} className="text-blue-500" />
-            <span className="text-[13px] font-medium text-[#111]">acme-saas.com</span>
+            <span className="text-[13px] font-medium text-[#111]">{websiteHost}</span>
           </div>
-          <p className="text-[12px] text-[#888] ml-7">47 pages discovered</p>
+          <p className="text-[12px] text-[#888] ml-7">{pagesDiscovered || 0} pages discovered</p>
         </div>
 
         <div className="space-y-2 font-mono text-[11px] text-[#888] leading-relaxed">
-          <p className="text-[#111] mb-2">acme-saas.com/</p>
+          <p className="text-[#111] mb-2">{websiteHost}/</p>
           <p>├── /checkout</p>
           <p>│   ├── /cart</p>
           <p>│   ├── /payment</p>
