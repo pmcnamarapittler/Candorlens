@@ -7,7 +7,8 @@ This guide documents a reproducible deployment path for the FastAPI backend cont
 - Docker installed locally
 - Azure subscription with Container Apps enabled
 - Optional: Azure Blob Storage connection string for `/report` persistence
-- Playwright Chromium runtime available for `/collect-flow` and browser-rendered `/generate-report`
+- External BERT artifacts available at `MODEL_PATH` or `ml/models/bert_v1`
+- Playwright Chromium runtime available for browser-rendered `/generate-report`
 
 ## 2) Required Environment Variables
 
@@ -16,6 +17,15 @@ This guide documents a reproducible deployment path for the FastAPI backend cont
 - `REPORT_STORAGE_BACKEND` (`local` or `azure`)
 - `REPORT_STORAGE_PATH` (required when `REPORT_STORAGE_BACKEND=local`)
 - `AZURE_STORAGE_CONNECTION_STRING` (required when `REPORT_STORAGE_BACKEND=azure`)
+- `FIRECRAWL_API_KEY` (required for `/collect-flow`)
+
+The model directory is external/private and is not committed to git. It must contain a trained HuggingFace BERT classifier with `config.json`, `label_map.json`, `vocab.txt`, and either `pytorch_model.bin` or `model.safetensors`.
+
+Validate artifacts before starting the API:
+
+```bash
+python scripts/verify_model_artifacts.py --model-path ml/models/bert_v1
+```
 
 ## 3) Local Docker Validation
 
@@ -24,6 +34,7 @@ docker build -t candorlens-api .
 docker run --rm -p 8000:8000 \
   -e REPORT_STORAGE_BACKEND=local \
   -e REPORT_STORAGE_PATH=data/reports \
+  -e MODEL_PATH=/app/ml/models/bert_v1 \
   candorlens-api
 ```
 
@@ -49,7 +60,7 @@ curl -s -X POST http://localhost:8000/generate-report \
 Expected:
 - `/` returns `{"status":"ok"}`
 - `/analyze-text` returns a classified response
-- `/collect-flow` returns website-specific flow events
+- `/collect-flow` returns website-specific flow events when `FIRECRAWL_API_KEY` is configured
 - `/generate-report` returns a valid PDF file
 
 ## 4) Azure Container Apps Deployment (Deterministic CLI Path)

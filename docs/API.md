@@ -18,10 +18,17 @@ FastAPI backend for CandorLens: analyze text or flows for illegal language patte
 | `REPORT_STORAGE_BACKEND` | Where to store reports: `azure` or `local`. | `azure` |
 | `REPORT_STORAGE_PATH` | For `local` backend: directory for report JSON files. | `data/reports` |
 | `AZURE_STORAGE_CONNECTION_STRING` | For `azure` backend: connection string to blob storage. | — |
+| `FIRECRAWL_API_KEY` | Required by runtime `/collect-flow` website ingestion. | — |
 
 No secrets or keys are read from code; set env in deployment (e.g. Azure Container Apps configuration).
 
 **Local storage:** Set `REPORT_STORAGE_BACKEND=local` to store reports as JSON files in `data/reports/` (or `REPORT_STORAGE_PATH`). No Azure credentials needed.
+
+The BERT model directory is external/private and is not committed to git. It must contain `config.json`, `label_map.json`, `vocab.txt`, and either `pytorch_model.bin` or `model.safetensors`. Verify it before serving analyze traffic:
+
+```bash
+python scripts/verify_model_artifacts.py --model-path ml/models/bert_v1
+```
 
 ---
 
@@ -104,8 +111,8 @@ Analyze an array of language events (e.g. from a flow). Returns aggregated findi
 
 ### POST /collect-flow
 
-Collect website-specific page text and CTA language with Playwright to prepare events
-for `/analyze-flow`.
+Collect website-specific page text and CTA language with Firecrawl to prepare events
+for `/analyze-flow`. Set `FIRECRAWL_API_KEY` before calling this endpoint.
 
 **Request body:**
 
@@ -204,7 +211,7 @@ Validation notes:
 Image is built with Python 3.11; BERT is preloaded at startup (lifespan) to target P95 under 500 ms.
 
 ```bash
-# Build (ensure ml/models/bert_v1 exists or set MODEL_PATH at run)
+# Build (ensure external model artifacts are present or set MODEL_PATH at run)
 docker build -t candorlens-api .
 
 # Run

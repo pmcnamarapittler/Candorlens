@@ -70,24 +70,13 @@ export default function App() {
     }
   };
 
-  const handleInitialOnboardingComplete = async (data: any) => {
+  const handleInitialScanComplete = (data: any, scanResult?: { findings: Finding[] }) => {
     setOnboardingData(data);
     setIsLoggedIn(true);
-    setIsHydratingFromOnboarding(true);
+    setIsHydratingFromOnboarding(false);
     setAppError(null);
-
-    try {
-      const initialResult = await scannerService.scanUrl(data.websiteUrl);
-      setAllFindings(initialResult.findings);
-      setActiveTab('findings');
-    } catch (error) {
-      console.error('Initial scan failed:', error);
-      setAllFindings([]);
-      setAppError('Initial scan failed. Use the Overview tab to retry with a page URL.');
-      setActiveTab('overview');
-    } finally {
-      setIsHydratingFromOnboarding(false);
-    }
+    setAllFindings(scanResult?.findings || []);
+    setActiveTab('findings');
   };
 
   const renderContent = () => {
@@ -180,8 +169,9 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <OnboardingFlow
-        onComplete={handleInitialOnboardingComplete}
+        onComplete={handleInitialScanComplete}
         onDiscoverFlows={(websiteUrl) => scannerService.discoverFlows(websiteUrl)}
+        onScan={(collected, selectedFlowIds) => scannerService.scanCollectedFlow(collected, selectedFlowIds)}
       />
     );
   }

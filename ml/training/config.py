@@ -27,4 +27,4 @@ NUM_EPOCHS = 10
 BATCH_SIZE = 8
 WEIGHT_DECAY = 0.01
 WARMUP_RATIO = 0.1
-FREEZE_LAYERS = 8  # freeze first 10 of 12 encoder layers to reduce overfitting
+FREEZE_LAYERS = 8  # freeze first 8 of 12 encoder layers to reduce overfitting

@@ -28,6 +28,10 @@ export interface Finding {
   element: string;
   status: 'Open' | 'In Progress' | 'Completed';
   confidence: number;
+  attackClass?: 'forced_continuity' | 'false_urgency' | 'fear_based_threat';
+  sourceUrl?: string;
+  pageTitle?: string;
+  flowStep?: number;
   screenshotUrl?: string;
   capturedAt?: string;
   resolution?: string;

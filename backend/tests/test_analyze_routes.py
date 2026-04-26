@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from backend.api import main
 from backend.api.routes import analyze
+from backend.services.bert_classifier import BertClassifierService, ModelArtifactError
 
 
 def _build_client() -> TestClient:
@@ -67,4 +69,31 @@ def test_analyze_text_service_unavailable(monkeypatch):
     client = _build_client()
     response = client.post("/analyze-text", json={"text": "input"})
     assert response.status_code == 503
+
+
+def test_analyze_text_model_artifact_error(monkeypatch):
+    monkeypatch.setattr(
+        analyze,
+        "analyze_text",
+        lambda _: (_ for _ in ()).throw(ModelArtifactError("model artifacts incomplete")),
+    )
+    client = _build_client()
+    response = client.post("/analyze-text", json={"text": "input"})
+    assert response.status_code == 503
+    assert "model artifacts incomplete" in response.json()["detail"]
+
+
+def test_app_starts_when_model_artifacts_are_missing(tmp_path, monkeypatch):
+    BertClassifierService._instance = None
+    BertClassifierService._tokenizer = None
+    BertClassifierService._model = None
+    BertClassifierService._model_dir = None
+    BertClassifierService._id_to_label = None
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path / "missing"))
+
+    with TestClient(main.app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 

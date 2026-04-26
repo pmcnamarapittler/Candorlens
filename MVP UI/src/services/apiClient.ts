@@ -9,6 +9,9 @@ interface AnalyzeTextResponse {
   confidence: "HIGH" | "MEDIUM" | "LOW";
   rationale: string;
   flow_id: string;
+  flow_step: number;
+  url?: string | null;
+  page_title?: string | null;
   legal_mapping: {
     regulations: Array<{
       name: string;

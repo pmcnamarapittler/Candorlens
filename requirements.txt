@@ -12,7 +12,7 @@ transformers>=4.36.0
 datasets>=2.16.0
 scikit-learn>=1.4.0
 
-# === Flow capture (Playwright) ===
+# === Flow capture / browser rendering ===
 playwright>=1.40.0
 
 # === Data Processing ===

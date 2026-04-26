@@ -6,9 +6,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from io import BytesIO
+import logging
 
 from backend.schemas.report import GenerateReportRequest
 from backend.services.report_html_renderer import build_report_html
+
+logger = logging.getLogger(__name__)
 
 
 def _severity_rank(value: str) -> int:
@@ -125,6 +128,7 @@ def generate_pdf_report(payload: GenerateReportRequest) -> bytes:
     """
     try:
         return _generate_pdf_report_playwright(payload)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Playwright PDF rendering failed; falling back to ReportLab: %s", exc)
         return _generate_pdf_report_reportlab(payload)
 

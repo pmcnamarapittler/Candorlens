@@ -1,16 +1,22 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes import analyze, report
-from backend.services.bert_classifier import get_classifier
+from backend.services.bert_classifier import ModelArtifactError, get_classifier
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Preload BERT model at startup for P95 response time under 500ms."""
-    get_classifier().load()
+    try:
+        get_classifier().load()
+    except ModelArtifactError as exc:
+        logger.warning("BERT model preload skipped: %s", exc)
     yield
     # Shutdown: no explicit unload needed
 

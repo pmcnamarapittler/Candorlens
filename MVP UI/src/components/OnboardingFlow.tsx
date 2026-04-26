@@ -18,17 +18,16 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { CollectedFlowData, DiscoveredFlow, ScanResult } from '../services/scannerService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 interface OnboardingFlowProps {
-  onComplete: (data: any) => void;
-  onDiscoverFlows?: (websiteUrl: string) => Promise<{
-    discoveredFlows: Array<{ id: string; title: string; path: string; risk_hint: string }>;
-    pagesDiscovered: number;
-  }>;
+  onComplete: (data: any, scanResult?: ScanResult) => void;
+  onDiscoverFlows?: (websiteUrl: string) => Promise<CollectedFlowData>;
+  onScan?: (collected: CollectedFlowData, selectedFlowIds?: string[]) => Promise<ScanResult>;
 }
 
 function ShutterIcon({ className, size = 24 }: { className?: string, size?: number }) {
@@ -73,7 +72,7 @@ function LineLogo() {
   );
 }
 
-export default function OnboardingFlow({ onComplete, onDiscoverFlows }: OnboardingFlowProps) {
+export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: OnboardingFlowProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -83,9 +82,11 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows }: Onboardi
     workEmail: ''
   });
 
-  const [selectedFlows, setSelectedFlows] = useState<string[]>(['checkout', 'pricing', 'cancellation']);
-  const [discoveredFlows, setDiscoveredFlows] = useState<Array<{ id: string; title: string; path: string; risk_hint: string }>>([]);
+  const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
+  const [discoveredFlows, setDiscoveredFlows] = useState<DiscoveredFlow[]>([]);
+  const [collectedFlowData, setCollectedFlowData] = useState<CollectedFlowData | null>(null);
   const [pagesDiscovered, setPagesDiscovered] = useState(0);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
@@ -106,6 +107,7 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows }: Onboardi
             websiteUrl={formData.websiteUrl}
             onDiscoverFlows={onDiscoverFlows}
             onDiscovered={(result) => {
+              setCollectedFlowData(result);
               setDiscoveredFlows(result.discoveredFlows || []);
               setPagesDiscovered(result.pagesDiscovered || 0);
               const suggested = (result.discoveredFlows || []).slice(0, 5).map((flow) => flow.id);
@@ -113,6 +115,7 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows }: Onboardi
                 setSelectedFlows(suggested);
               }
             }}
+            onError={(message: string) => setDiscoveryError(message)}
             onComplete={() => setStep(2)}
           />
         );
@@ -123,14 +126,26 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows }: Onboardi
             setSelectedFlows={setSelectedFlows} 
             websiteUrl={formData.websiteUrl}
             discoveredFlows={discoveredFlows}
+            events={collectedFlowData?.events || []}
             pagesDiscovered={pagesDiscovered}
+            discoveryError={discoveryError}
             onNext={handleNext} 
             onBack={() => setStep(1)} 
           />
         );
       case 3:
         return (
-          <Step3 onComplete={() => onComplete(formData)} />
+          <Step3
+            websiteUrl={formData.websiteUrl}
+            pagesDiscovered={pagesDiscovered}
+            selectedFlows={selectedFlows}
+            collectedFlowData={collectedFlowData}
+            onScan={onScan}
+            onBack={() => setStep(2)}
+            onComplete={(scanResult: ScanResult) =>
+              onComplete({ ...formData, selectedFlows, collectedFlowData }, scanResult)
+            }
+          />
         );
       default:
         return null;
@@ -158,6 +173,39 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows }: Onboardi
 }
 
 function Step1({ formData, setFormData, onNext }: any) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const validate = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!formData.firstName.trim()) nextErrors.firstName = 'First name is required.';
+    if (!formData.lastName.trim()) nextErrors.lastName = 'Last name is required.';
+    if (!formData.companyName.trim()) nextErrors.companyName = 'Company name is required.';
+    if (!formData.websiteUrl.trim()) {
+      nextErrors.websiteUrl = 'Website URL is required.';
+    } else {
+      try {
+        const parsed = new URL(formData.websiteUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          nextErrors.websiteUrl = 'Website URL must start with http:// or https://.';
+        }
+      } catch {
+        nextErrors.websiteUrl = 'Enter a valid website URL, including https://.';
+      }
+    }
+    if (!formData.workEmail.trim()) {
+      nextErrors.workEmail = 'Work email is required.';
+    } else if (!emailPattern.test(formData.workEmail)) {
+      nextErrors.workEmail = 'Enter a valid work email address.';
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (validate()) onNext();
+  };
+
   return (
     <div className="flex flex-col lg:flex-row min-h-screen">
       {/* Left Side: Form */}
@@ -181,9 +229,13 @@ function Step1({ formData, setFormData, onNext }: any) {
                   type="text" 
                   value={formData.firstName}
                   placeholder="Jane"
-                  onChange={e => setFormData({...formData, firstName: e.target.value})}
+                  onChange={e => {
+                    setFormData({...formData, firstName: e.target.value});
+                    setErrors(({ firstName, ...rest }) => rest);
+                  }}
                   className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
                 />
+                {errors.firstName && <p className="text-[10px] text-red-600">{errors.firstName}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Last Name</label>
@@ -191,9 +243,13 @@ function Step1({ formData, setFormData, onNext }: any) {
                   type="text" 
                   value={formData.lastName}
                   placeholder="Smith"
-                  onChange={e => setFormData({...formData, lastName: e.target.value})}
+                  onChange={e => {
+                    setFormData({...formData, lastName: e.target.value});
+                    setErrors(({ lastName, ...rest }) => rest);
+                  }}
                   className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
                 />
+                {errors.lastName && <p className="text-[10px] text-red-600">{errors.lastName}</p>}
               </div>
             </div>
 
@@ -203,9 +259,13 @@ function Step1({ formData, setFormData, onNext }: any) {
                 type="text" 
                 value={formData.companyName}
                 placeholder="Acme SaaS, Inc."
-                onChange={e => setFormData({...formData, companyName: e.target.value})}
+                onChange={e => {
+                  setFormData({...formData, companyName: e.target.value});
+                  setErrors(({ companyName, ...rest }) => rest);
+                }}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
+              {errors.companyName && <p className="text-[10px] text-red-600">{errors.companyName}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -214,10 +274,14 @@ function Step1({ formData, setFormData, onNext }: any) {
                 type="text" 
                 value={formData.websiteUrl}
                 placeholder="https://example.com"
-                onChange={e => setFormData({...formData, websiteUrl: e.target.value})}
+                onChange={e => {
+                  setFormData({...formData, websiteUrl: e.target.value});
+                  setErrors(({ websiteUrl, ...rest }) => rest);
+                }}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
               <p className="text-[10px] text-[#aaa]">We'll analyze your checkout, pricing, and cancellation flows</p>
+              {errors.websiteUrl && <p className="text-[10px] text-red-600">{errors.websiteUrl}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -226,15 +290,19 @@ function Step1({ formData, setFormData, onNext }: any) {
                 type="email" 
                 value={formData.workEmail}
                 placeholder="jane@company.com"
-                onChange={e => setFormData({...formData, workEmail: e.target.value})}
+                onChange={e => {
+                  setFormData({...formData, workEmail: e.target.value});
+                  setErrors(({ workEmail, ...rest }) => rest);
+                }}
                 className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
               />
+              {errors.workEmail && <p className="text-[10px] text-red-600">{errors.workEmail}</p>}
             </div>
           </div>
 
           <div className="pt-4">
             <button 
-              onClick={onNext}
+              onClick={handleSubmit}
               className="bg-[#111] text-white rounded-lg px-10 py-3.5 text-[13px] font-medium hover:bg-[#333] transition-colors"
             >
               Scan My Website
@@ -258,7 +326,7 @@ function Step1({ formData, setFormData, onNext }: any) {
   );
 }
 
-function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onComplete }: any) {
+function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onError, onComplete }: any) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Initializing crawler...');
 
@@ -271,8 +339,10 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onCom
         if (!cancelled && onDiscovered) {
           onDiscovered(result);
         }
-      } catch {
-        // Keep UX moving with fallback defaults if discovery fails.
+      } catch (error) {
+        if (!cancelled && onError) {
+          onError(error instanceof Error ? error.message : 'Flow discovery failed.');
+        }
       }
     };
     runDiscovery();
@@ -336,28 +406,34 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onCom
   );
 }
 
-function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, pagesDiscovered, onNext, onBack }: any) {
+function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, events, pagesDiscovered, discoveryError, onNext, onBack }: any) {
   const normalizedWebsite = (websiteUrl || '').trim();
   const websiteHost = normalizedWebsite
     ? normalizedWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')
     : 'your-site.com';
-  const fallbackFlows = [
-    { id: 'checkout', title: 'Checkout Flow', paths: '/checkout, /cart, /payment, /confirmation', risk: 'HIGH RISK', icon: ShoppingCart },
-    { id: 'pricing', title: 'Pricing & Plans', paths: '/pricing, /plans, /compare', risk: 'HIGH RISK', icon: CreditCard },
-    { id: 'cancellation', title: 'Cancellation Flow', paths: '/account/cancel, /downgrade', risk: 'HIGH RISK', icon: XCircle },
-    { id: 'signup', title: 'Signup & Trial', paths: '/signup, /register, /trial', risk: 'MEDIUM RISK', icon: Key },
-    { id: 'settings', title: 'Account Settings', paths: '/account, /settings, /billing', risk: 'MEDIUM RISK', icon: Settings },
-    { id: 'email', title: 'Email Preferences', paths: '/unsubscribe, /preferences', risk: 'LOW RISK', icon: Mail },
-  ];
-  const flows = (discoveredFlows && discoveredFlows.length)
-    ? discoveredFlows.map((f: any) => ({
+  const flows = (discoveredFlows || []).map((f: any) => ({
         id: f.id,
         title: f.title,
         paths: f.path,
         risk: `${(f.risk_hint || 'MEDIUM').toUpperCase()} RISK`,
         icon: Globe,
-      }))
-    : fallbackFlows;
+      }));
+  const treePaths = Array.from(
+    new Set(
+      (events || [])
+        .map((event: any) => {
+          if (event.url) {
+            try {
+              return new URL(event.url).pathname || '/';
+            } catch {
+              return event.url;
+            }
+          }
+          return event.flow_id ? `/${event.flow_id}` : null;
+        })
+        .filter(Boolean)
+    )
+  );
 
   const toggleFlow = (id: string) => {
     if (selectedFlows.includes(id)) {
@@ -373,15 +449,22 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, p
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#888] mb-6">Step 2 of 3</p>
           <h2 className="text-[42px] xl:text-[48px] font-light tracking-tight text-[#111] leading-tight mb-4">Select flows to scan</h2>
-          <p className="text-[14px] text-[#666] leading-relaxed max-w-2xl">We discovered 8 potential user flows on your website. Select up to 5 to include in your free scan.</p>
+          <p className="text-[14px] text-[#666] leading-relaxed max-w-2xl">We discovered {flows.length} potential user {flows.length === 1 ? 'flow' : 'flows'} on your website. Select up to 5 to include in your scan.</p>
         </div>
 
-        <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-4 flex items-center gap-4">
+        <div className={cn(
+          "border rounded-lg p-4 flex items-center gap-4",
+          discoveryError ? "bg-red-50/50 border-red-100" : "bg-emerald-50/50 border-emerald-100"
+        )}>
           <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
             <Check size={16} />
           </div>
-          <p className="text-[13px] text-emerald-800">
-            Found <span className="font-medium">{pagesDiscovered || 0} pages</span> across <span className="font-medium">{flows.length}</span> flows on {websiteHost}
+          <p className={cn("text-[13px]", discoveryError ? "text-red-700" : "text-emerald-800")}>
+            {discoveryError ? (
+              <>Firecrawl discovery failed: {discoveryError}</>
+            ) : (
+              <>Found <span className="font-medium">{pagesDiscovered || 0} pages</span> across <span className="font-medium">{flows.length}</span> flows on {websiteHost}</>
+            )}
           </p>
         </div>
 
@@ -392,7 +475,12 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, p
           </div>
 
           <div className="space-y-3">
-            {flows.map(flow => (
+            {!flows.length && (
+              <div className="p-5 border border-[#f0f0f0] rounded-xl text-[13px] text-[#666] bg-white">
+                No flow-specific pages were returned by Firecrawl. Go back and try another URL, or configure Firecrawl before scanning.
+              </div>
+            )}
+            {flows.map((flow: any) => (
               <div 
                 key={flow.id}
                 onClick={() => toggleFlow(flow.id)}
@@ -440,6 +528,7 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, p
           </button>
           <button 
             onClick={onNext}
+            disabled={!selectedFlows.length}
             className="w-full sm:w-auto px-10 py-3.5 bg-[#111] text-white text-[13px] font-medium rounded-lg hover:bg-[#333] transition-all flex items-center justify-center gap-3"
           >
             Start Scan <ArrowRight size={16} />
@@ -458,80 +547,70 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, p
 
         <div className="space-y-2 font-mono text-[11px] text-[#888] leading-relaxed">
           <p className="text-[#111] mb-2">{websiteHost}/</p>
-          <p>├── /checkout</p>
-          <p>│   ├── /cart</p>
-          <p>│   ├── /payment</p>
-          <p>│   └── /confirmation</p>
-          <p>├── /pricing</p>
-          <p>│   ├── /plans</p>
-          <p>│   └── /compare</p>
-          <p>├── /account</p>
-          <p>│   ├── /settings</p>
-          <p>│   ├── /billing</p>
-          <p>│   └── /cancel</p>
-          <p>├── /signup</p>
-          <p>│   ├── /register</p>
-          <p>│   └── /trial</p>
-          <p>├── /features</p>
-          <p>├── /about</p>
-          <p>├── /blog</p>
-          <p>└── /contact</p>
+          {treePaths.length ? (
+            treePaths.map((path: any, index: number) => (
+              <p key={path}>{index === treePaths.length - 1 ? '└──' : '├──'} {path}</p>
+            ))
+          ) : (
+            <p>No Firecrawl page paths returned.</p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Step3({ onComplete }: any) {
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('Sitemap discovery — 47 pages found');
-  const [completed, setCompleted] = useState<string[]>(['Sitemap discovery — 47 pages found']);
+function Step3({ websiteUrl, pagesDiscovered, selectedFlows, collectedFlowData, onScan, onComplete, onBack }: any) {
+  const [progress, setProgress] = useState(15);
+  const [status, setStatus] = useState(`Preparing ${selectedFlows.length} selected ${selectedFlows.length === 1 ? 'flow' : 'flows'} for analysis`);
+  const [completed, setCompleted] = useState<string[]>([
+    `Firecrawl discovery completed — ${pagesDiscovered || 0} pages found`,
+  ]);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress(p => {
-        if (p >= 100) {
-          clearInterval(timer);
-          setTimeout(onComplete, 1000);
-          return 100;
-        }
-        return p + 2;
-      });
-    }, 100);
+    let cancelled = false;
 
-    const statusTimer = setInterval(() => {
-      const statuses = [
-        'Analyzing 3 of 5 flows...',
-        'Extracting text elements from /checkout/payment',
-        'Scanning /pricing for false urgency patterns',
-        'Checking ROSCA compliance on /account/cancel',
-        'Finalizing audit report...'
-      ];
-      
-      setStatus(prev => {
-        const nextIndex = statuses.indexOf(prev) + 1;
-        if (nextIndex < statuses.length) {
-          if (!completed.includes(prev)) {
-            setCompleted(c => [...c, prev]);
-          }
-          return statuses[nextIndex];
-        }
-        return prev;
-      });
-    }, 1500);
+    const runScan = async () => {
+      if (!onScan || !collectedFlowData) {
+        setScanError('No Firecrawl results are available to scan.');
+        return;
+      }
 
-    return () => {
-      clearInterval(timer);
-      clearInterval(statusTimer);
+      try {
+        setProgress(35);
+        setStatus(`Analyzing ${selectedFlows.length} selected ${selectedFlows.length === 1 ? 'flow' : 'flows'} with BERT`);
+        setCompleted((items) => [...items, `Selected flows: ${selectedFlows.join(', ')}`]);
+        const result = await onScan(collectedFlowData, selectedFlows);
+        if (cancelled) return;
+        setProgress(85);
+        setStatus(`Mapping ${result.findings.length} findings to legal guidance`);
+        setCompleted((items) => [...items, `BERT analysis returned ${result.findings.length} findings`]);
+        setProgress(100);
+        setStatus('Finalizing audit results');
+        setTimeout(() => {
+          if (!cancelled) onComplete(result);
+        }, 500);
+      } catch (error) {
+        if (!cancelled) {
+          setScanError(error instanceof Error ? error.message : 'Scan failed.');
+          setStatus('Scan failed');
+        }
+      }
     };
-  }, [onComplete, completed]);
+
+    runScan();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectedFlowData, onComplete, onScan, selectedFlows]);
 
   return (
     <div className="flex flex-col items-center justify-center py-10 sm:py-20 text-center">
       <div className="mb-12 xl:mb-16">
         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#888] mb-6">Step 3 of 3</p>
         <h2 className="text-[42px] xl:text-[48px] font-light tracking-tight text-[#111] leading-tight mb-4">Scanning your website</h2>
-        <p className="text-[14px] text-[#666] leading-relaxed">This usually takes 2-3 minutes</p>
+        <p className="text-[14px] text-[#666] leading-relaxed">Analyzing Firecrawl text from {websiteUrl}</p>
       </div>
 
       <div className="w-full max-w-md xl:max-w-xl space-y-12 xl:space-y-16">
@@ -560,6 +639,12 @@ function Step3({ onComplete }: any) {
               <Loader2 size={16} className="animate-spin text-[#111]" />
               {status}
             </div>
+            {scanError && (
+              <div className="mt-4 text-[13px] text-red-700 bg-red-50 border border-red-100 rounded-lg p-4">
+                {scanError}
+                <button onClick={onBack} className="ml-4 underline">Back to flows</button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">

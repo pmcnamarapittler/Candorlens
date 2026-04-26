@@ -10,7 +10,7 @@ shape consumed by the BERT classifier.
 from __future__ import annotations
 
 import os
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +22,22 @@ FIRECRAWL_REQUEST_TIMEOUT = 90.0
 FIRECRAWL_SCRAPE_TIMEOUT_MS = 30000
 
 FLOW_KEYWORDS = (
+    "product",
+    "products",
+    "ai-detector",
+    "advanced",
+    "scan",
+    "checker",
+    "plagiarism",
+    "grammar",
+    "api",
+    "integrations",
+    "contact-sales",
+    "demo",
+    "chrome",
+    "docs",
+    "solutions",
+    "resources",
     "checkout",
     "pricing",
     "plans",
@@ -41,7 +57,8 @@ FLOW_KEYWORDS = (
     "purchase",
 )
 
-HIGH_RISK_KEYWORDS = ("checkout", "cancel", "pricing", "purchase", "buy", "billing")
+HIGH_RISK_KEYWORDS = ("checkout", "cancel", "pricing", "purchase", "buy", "billing", "subscribe")
+MEDIUM_RISK_KEYWORDS = ("api", "integrations", "demo", "contact-sales", "signup", "trial")
 
 
 def _truncate(text: str, max_len: int) -> str:
@@ -110,26 +127,44 @@ def _select_candidate_urls(homepage_url: str, outgoing_links: list[str], max_can
     parsed_home = urlparse(homepage_url)
     same_origin = f"{parsed_home.scheme}://{parsed_home.netloc}"
 
-    matches: list[tuple[int, str]] = []
+    keyword_matches: list[tuple[int, str]] = []
+    fallback_matches: list[tuple[int, str]] = []
     seen: set[str] = {homepage_url}
     for link in outgoing_links:
         if not link:
             continue
-        parsed = urlparse(link)
+        absolute_link = urljoin(homepage_url, link)
+        parsed = urlparse(absolute_link)
         if f"{parsed.scheme}://{parsed.netloc}" != same_origin:
             continue
         path = parsed.path or "/"
-        path_lower = path.lower()
-        if not any(keyword in path_lower for keyword in FLOW_KEYWORDS):
+        if path in ("", "/"):
             continue
+        path_lower = path.lower()
         canonical = f"{parsed.scheme}://{parsed.netloc}{path}"
         if canonical in seen:
             continue
         seen.add(canonical)
-        matches.append((len(path), canonical))
+        if any(keyword in path_lower for keyword in FLOW_KEYWORDS):
+            keyword_matches.append((len(path), canonical))
+        else:
+            fallback_matches.append((len(path), canonical))
 
-    matches.sort(key=lambda pair: pair[0])
-    return [url for _, url in matches[:max_candidates]]
+    keyword_matches.sort(key=lambda pair: pair[0])
+    fallback_matches.sort(key=lambda pair: pair[0])
+    selected = keyword_matches[:max_candidates]
+    if len(selected) < max_candidates:
+        selected.extend(fallback_matches[: max_candidates - len(selected)])
+    return [url for _, url in selected]
+
+
+def _risk_hint_from_flow_id(flow_id: str) -> str:
+    flow_id_lower = flow_id.lower()
+    if any(keyword in flow_id_lower for keyword in HIGH_RISK_KEYWORDS):
+        return "HIGH"
+    if any(keyword in flow_id_lower for keyword in MEDIUM_RISK_KEYWORDS):
+        return "MEDIUM"
+    return "LOW"
 
 
 def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
@@ -193,9 +228,7 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
                     "id": flow_id,
                     "title": display_title[:60],
                     "path": urlparse(candidate_url).path or "/",
-                    "risk_hint": "HIGH"
-                    if any(keyword in flow_id for keyword in HIGH_RISK_KEYWORDS)
-                    else "MEDIUM",
+                    "risk_hint": _risk_hint_from_flow_id(flow_id),
                 }
             )
 

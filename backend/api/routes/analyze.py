@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
 
 from backend.schemas.language_event import LanguageEventResponse
+from backend.services.bert_classifier import ModelArtifactError
 from backend.services.analyze_service import analyze_flow, analyze_text
 from backend.services.flow_runtime_ingest import collect_flow_events
 
@@ -69,7 +70,7 @@ async def api_analyze_text(body: AnalyzeTextRequest) -> LanguageEventResponse:
     """
     try:
         return analyze_text(body.text)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ModelArtifactError) as e:
         raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -89,7 +90,7 @@ async def api_analyze_flow(body: AnalyzeFlowRequest) -> AnalyzeFlowResponse:
     try:
         findings, flow_context = analyze_flow(events)
         return AnalyzeFlowResponse(findings=findings, flow_context=flow_context)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ModelArtifactError) as e:
         raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -102,10 +103,10 @@ async def api_analyze_flow(body: AnalyzeFlowRequest) -> AnalyzeFlowResponse:
 )
 def api_collect_flow(body: CollectFlowRequest) -> CollectFlowResponse:
     """
-    Collect website-specific flow events with Playwright for downstream /analyze-flow.
+    Collect website-specific flow events with Firecrawl for downstream /analyze-flow.
 
-    Defined as a sync handler so FastAPI runs it in a worker thread; sync_playwright
-    cannot run inside the asyncio event loop.
+    Defined as a sync handler so FastAPI runs the blocking HTTP scrape work in
+    a worker thread instead of the asyncio event loop.
     """
     try:
         payload = collect_flow_events(str(body.website_url), max_steps=body.max_steps)

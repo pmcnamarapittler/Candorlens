@@ -77,8 +77,8 @@ Language implying account suspension, security compromise, or service loss to co
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  FLOW CAPTURE (Playwright)                   │
-│         Crawl checkout, signup, cancellation flows          │
+│              FLOW INGESTION (Firecrawl runtime)              │
+│       Discover checkout, signup, cancellation pages          │
 └─────────────────────────┬───────────────────────────────────┘
                           │
                           ▼
@@ -117,7 +117,7 @@ Language implying account suspension, security compromise, or service loss to co
 | Demo Dashboard | React + TypeScript |
 | Cloud Hosting | Azure Container Apps |
 | Training Data | JSONL (LanguageEvent schema) |
-| Report Generation | ReportLab / WeasyPrint |
+| Report Generation | Playwright PDF / ReportLab fallback |
 
 ---
 

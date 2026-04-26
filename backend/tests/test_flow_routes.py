@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api.routes import analyze
+from backend.services.bert_classifier import ModelArtifactError
 
 
 def _build_client() -> TestClient:
@@ -23,6 +24,8 @@ def test_analyze_flow_success(monkeypatch):
                 "coercion_vector": ["temporal_pressure"],
                 "flow_step": 0,
                 "flow_id": events[0]["flow_id"],
+                "url": events[0].get("url"),
+                "page_title": events[0].get("page_title"),
                 "rationale": "Artificial urgency phrase.",
                 "source": "model_prediction",
                 "risk_outcome": None,
@@ -50,19 +53,46 @@ def test_analyze_flow_success(monkeypatch):
 
     response = client.post(
         "/analyze-flow",
-        json={"events": [{"text": "Offer ends in 2 minutes", "flow_id": "checkout", "flow_step": 0}]},
+        json={
+            "events": [
+                {
+                    "text": "Offer ends in 2 minutes",
+                    "flow_id": "checkout",
+                    "flow_step": 0,
+                    "url": "https://example.com/checkout",
+                    "page_title": "Checkout",
+                }
+            ]
+        },
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["flow_context"]["flow_id"] == "checkout"
     assert body["findings"][0]["attack_class"] == "false_urgency"
+    assert body["findings"][0]["url"] == "https://example.com/checkout"
+    assert body["findings"][0]["page_title"] == "Checkout"
 
 
 def test_analyze_flow_validation_error():
     client = _build_client()
     response = client.post("/analyze-flow", json={"events": []})
     assert response.status_code == 422
+
+
+def test_analyze_flow_model_artifact_error(monkeypatch):
+    monkeypatch.setattr(
+        analyze,
+        "analyze_flow",
+        lambda _: (_ for _ in ()).throw(ModelArtifactError("model artifacts incomplete")),
+    )
+    client = _build_client()
+    response = client.post(
+        "/analyze-flow",
+        json={"events": [{"text": "Offer ends soon", "flow_id": "checkout", "flow_step": 0}]},
+    )
+    assert response.status_code == 503
+    assert "model artifacts incomplete" in response.json()["detail"]
 
 
 def test_collect_flow_success(monkeypatch):

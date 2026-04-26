@@ -9,6 +9,7 @@ Usage (from repo root):
 
 import sys
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +38,7 @@ from ml.training.config import (
     WARMUP_RATIO,
     FREEZE_LAYERS,
     NUM_LABELS,
+    LABEL_MAP,
     ID_TO_LABEL,
     RANDOM_SEED,
 )
@@ -79,6 +81,29 @@ def compute_metrics(eval_pred):
     preds = np.argmax(logits, axis=-1)
     accuracy = (preds == labels).mean()
     return {"accuracy": accuracy}
+
+
+def save_label_metadata(output_dir: Path) -> None:
+    """Persist class ID metadata beside the HuggingFace model artifacts."""
+    with open(output_dir / "label_map.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "label_map": LABEL_MAP,
+                "id_to_label": {str(idx): label for idx, label in ID_TO_LABEL.items()},
+            },
+            f,
+            indent=2,
+            sort_keys=True,
+        )
+
+
+def save_tokenizer_artifacts(tokenizer: BertTokenizer, output_dir: Path) -> None:
+    """Persist tokenizer files needed by the runtime BertTokenizer loader."""
+    tokenizer.save_pretrained(str(output_dir))
+    if not (output_dir / "vocab.txt").exists():
+        tokenizer.save_vocabulary(str(output_dir))
+    if not (output_dir / "vocab.txt").exists() and getattr(tokenizer, "vocab_file", None):
+        shutil.copyfile(tokenizer.vocab_file, output_dir / "vocab.txt")
 
 
 # ── Main ──
@@ -182,7 +207,8 @@ def main():
     final_dir.mkdir(parents=True, exist_ok=True)
 
     trainer.save_model(str(final_dir))
-    tokenizer.save_pretrained(str(final_dir))
+    save_tokenizer_artifacts(tokenizer, final_dir)
+    save_label_metadata(final_dir)
 
     log_history = trainer.state.log_history
     with open(final_dir / "training_log.json", "w") as f:

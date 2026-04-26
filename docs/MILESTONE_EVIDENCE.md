@@ -30,7 +30,7 @@ curl -s -X POST http://localhost:8000/generate-report \
   - `MVP UI/src/services/scannerService.ts`
   - `MVP UI/src/components/DashboardHome.tsx`
   - `MVP UI/src/app.tsx`
-- Playwright runtime collection endpoint:
+- Firecrawl runtime collection endpoint:
   - `POST /collect-flow` in `backend/api/routes/analyze.py`
   - runtime collector in `backend/services/flow_runtime_ingest.py`
 - Findings view consumes runtime findings state:

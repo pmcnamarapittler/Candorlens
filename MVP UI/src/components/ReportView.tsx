@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   FileDown, 
   Share2, 
@@ -24,6 +24,7 @@ interface ReportViewProps {
 }
 
 export default function ReportView({ onboardingData, onScheduleReAudit, onDownloadPdf, findings = [] }: ReportViewProps) {
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const companyName = onboardingData?.companyName || 'Client';
   const website = onboardingData?.websiteUrl || 'N/A';
   const today = new Date().toLocaleDateString('en-US', { 
@@ -37,6 +38,79 @@ export default function ReportView({ onboardingData, onScheduleReAudit, onDownlo
   const pagesScanned = new Set(findings.map((f) => f.page)).size;
   const regulations = Array.from(new Set(findings.map((f) => f.regulation))).slice(0, 6);
   const topFindings = findings.slice(0, 10);
+  const tocEntries = useMemo(
+    () => [
+      { label: 'Executive Summary', detail: `${findings.length} total findings` },
+      { label: 'Detailed Findings', detail: `${topFindings.length} shown` },
+      { label: 'Applicable Regulations', detail: `${regulations.length} mapped` },
+      { label: 'Export Options', detail: 'PDF / CSV' },
+      { label: 'Next Steps', detail: high > 0 ? `${high} high priority` : 'No high priority' },
+    ],
+    [findings.length, high, regulations.length, topFindings.length],
+  );
+
+  const buildCsv = () => {
+    const columns = [
+      'id',
+      'code',
+      'title',
+      'severity',
+      'regulation',
+      'page',
+      'sourceUrl',
+      'confidence',
+      'status',
+      'extractedText',
+      'remediation',
+    ];
+    const escapeCsv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = findings.map((finding) => [
+      finding.id,
+      finding.code,
+      finding.title,
+      finding.severity,
+      finding.regulation,
+      finding.page,
+      finding.sourceUrl,
+      finding.confidence,
+      finding.status,
+      finding.extractedText,
+      finding.violationReason,
+    ]);
+    return [columns, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n');
+  };
+
+  const handleExportCsv = () => {
+    const blob = new Blob([buildCsv()], { type: 'text/csv;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = 'candorlens_findings.csv';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(objectUrl);
+    setActionMessage('CSV exported.');
+  };
+
+  const handleShare = async () => {
+    const text = `${companyName} compliance report for ${website}: ${findings.length} findings, ${high} high severity.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'CandorLens Compliance Report',
+          text,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${text} ${window.location.href}`);
+      }
+      setActionMessage('Report share details copied.');
+    } catch (error) {
+      console.error('Failed to share report:', error);
+      setActionMessage('Unable to share report.');
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-full bg-[#f8f9fa]">
@@ -47,7 +121,10 @@ export default function ReportView({ onboardingData, onScheduleReAudit, onDownlo
           <p className="text-[11px] text-[#bbb] mt-1">Board-ready PDF document</p>
         </div>
         <div className="flex gap-2">
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#eee] text-[#555] text-[11px] font-medium rounded-md hover:bg-[#f5f5f5] transition-all">
+          <button
+            onClick={handleShare}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#eee] text-[#555] text-[11px] font-medium rounded-md hover:bg-[#f5f5f5] transition-all"
+          >
             <Share2 size={14} /> Share
           </button>
           <button
@@ -58,6 +135,11 @@ export default function ReportView({ onboardingData, onScheduleReAudit, onDownlo
           </button>
         </div>
       </header>
+      {actionMessage && (
+        <div className="mx-10 mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-700">
+          {actionMessage}
+        </div>
+      )}
 
       <div className="p-10 flex gap-10">
         {/* Document Preview */}
@@ -200,7 +282,11 @@ export default function ReportView({ onboardingData, onScheduleReAudit, onDownlo
               >
                 <Download size={14} /> Download PDF
               </button>
-              <button className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-[#eee] text-[#555] text-[11px] font-medium uppercase tracking-widest rounded hover:bg-[#f5f5f5] transition-all">
+              <button
+                onClick={handleExportCsv}
+                disabled={!findings.length}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-[#eee] text-[#555] text-[11px] font-medium uppercase tracking-widest rounded hover:bg-[#f5f5f5] transition-all disabled:opacity-50"
+              >
                 <FileSpreadsheet size={14} /> Export CSV
               </button>
             </div>
@@ -209,16 +295,10 @@ export default function ReportView({ onboardingData, onScheduleReAudit, onDownlo
           <div className="bg-white p-6 border border-[#eee] rounded-lg shadow-sm">
             <h4 className="text-[10px] font-medium uppercase tracking-wider text-[#bbb] mb-6">Table of Contents</h4>
             <div className="space-y-4">
-              {[
-                { label: 'Executive Summary', page: 1 },
-                { label: 'Detailed Findings', page: 2 },
-                { label: 'Legal References', page: 5 },
-                { label: 'Remediation Guide', page: 6 },
-                { label: 'Appendix', page: 8 },
-              ].map((item, i) => (
+              {tocEntries.map((item, i) => (
                 <div key={i} className="flex justify-between items-center text-[12px]">
                   <span className="text-[#555]">{item.label}</span>
-                  <span className="text-[#bbb] font-mono">{item.page}</span>
+                  <span className="text-[#bbb] font-mono">{item.detail}</span>
                 </div>
               ))}
             </div>
