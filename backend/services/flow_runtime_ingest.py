@@ -8,6 +8,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+FLOW_KEYWORDS = (
+    "checkout",
+    "pricing",
+    "plans",
+    "cancel",
+    "signup",
+    "register",
+    "trial",
+    "account",
+    "billing",
+    "buy",
+    "shop",
+    "subscribe",
+    "upgrade",
+    "order",
+    "payment",
+    "premium",
+    "purchase",
+)
+
 
 @dataclass
 class CollectedStep:
@@ -47,18 +72,23 @@ def _extract_text(page) -> str:
         return ""
 
 
+def _safe_goto(page, url: str, timeout_ms: int) -> None:
+    """
+    Navigate and give SPAs a chance to hydrate. After domcontentloaded, briefly
+    wait for the body to render visible text. The wait is best-effort — sites
+    with persistent polling never reach networkidle, so we cap at 5s.
+    """
+    page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+    try:
+        page.wait_for_function(
+            "() => document.body && document.body.innerText.trim().length > 100",
+            timeout=5000,
+        )
+    except Exception:
+        pass
+
+
 def _discover_candidate_links(page, base_url: str, limit: int = 8) -> list[str]:
-    keywords = (
-        "checkout",
-        "pricing",
-        "plans",
-        "cancel",
-        "signup",
-        "register",
-        "trial",
-        "account",
-        "billing",
-    )
     parsed_base = urlparse(base_url)
     same_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
@@ -78,7 +108,7 @@ def _discover_candidate_links(page, base_url: str, limit: int = 8) -> list[str]:
         if f"{parsed.scheme}://{parsed.netloc}" != same_origin:
             continue
         path_lower = (parsed.path or "").lower()
-        if not any(k in path_lower for k in keywords):
+        if not any(k in path_lower for k in FLOW_KEYWORDS):
             continue
         cleaned = f"{parsed.scheme}://{parsed.netloc}{parsed.path or '/'}"
         if cleaned not in candidates:
@@ -91,6 +121,9 @@ def _discover_candidate_links(page, base_url: str, limit: int = 8) -> list[str]:
 def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
     """
     Collect website-specific flow steps and convert to analyze-flow event input shape.
+    Performs 2-hop discovery: links matching flow keywords are followed from the
+    homepage, and additional candidate links are harvested from each visited page
+    until max_steps is reached.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -103,66 +136,91 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={"width": 1420, "height": 900})
-        page = context.new_page()
         try:
-            page.goto(website_url, wait_until="domcontentloaded", timeout=25000)
-        except Exception as exc:
-            browser.close()
-            raise RuntimeError(f"Could not load website: {exc}") from exc
-
-        root_text = _extract_text(page)
-        root_cta = _extract_cta_labels(page)
-        collected.append(
-            CollectedStep(
-                flow_id="root",
-                flow_step=0,
-                url=page.url,
-                page_title=page.title() or "Home",
-                text=root_text,
-                cta_labels=root_cta,
+            context = browser.new_context(
+                viewport={"width": 1420, "height": 900},
+                user_agent=USER_AGENT,
             )
-        )
-
-        links = _discover_candidate_links(page, page.url, limit=max_steps - 1)
-        for idx, link in enumerate(links, start=1):
+            page = context.new_page()
             try:
-                page.goto(link, wait_until="domcontentloaded", timeout=20000)
-            except Exception:
-                continue
-            flow_id = (urlparse(link).path or "/").strip("/") or "home"
-            flow_id = flow_id.replace("/", "_")
-            step = CollectedStep(
-                flow_id=flow_id,
-                flow_step=idx,
-                url=page.url,
-                page_title=page.title() or flow_id,
-                text=_extract_text(page),
-                cta_labels=_extract_cta_labels(page),
+                _safe_goto(page, website_url, timeout_ms=25000)
+            except Exception as exc:
+                raise RuntimeError(f"Could not load website: {exc}") from exc
+
+            root_text = _extract_text(page)
+            root_cta = _extract_cta_labels(page)
+            collected.append(
+                CollectedStep(
+                    flow_id="root",
+                    flow_step=0,
+                    url=page.url,
+                    page_title=page.title() or "Home",
+                    text=root_text,
+                    cta_labels=root_cta,
+                )
             )
-            collected.append(step)
-            discovered_flows.append(
-                {
-                    "id": flow_id,
-                    "title": step.page_title[:60],
-                    "path": urlparse(step.url).path or "/",
-                    "risk_hint": "HIGH" if any(k in flow_id for k in ("checkout", "cancel", "pricing")) else "MEDIUM",
-                }
-            )
-            if len(collected) >= max_steps:
-                break
-        browser.close()
+
+            visited: set[str] = {page.url}
+            queue: list[tuple[int, str]] = [
+                (1, link)
+                for link in _discover_candidate_links(page, page.url, limit=max_steps - 1)
+                if link not in visited
+            ]
+            for _, link in queue:
+                visited.add(link)
+
+            qi = 0
+            flow_step_counters: dict[str, int] = {}
+            while qi < len(queue) and len(collected) < max_steps:
+                depth, link = queue[qi]
+                qi += 1
+                try:
+                    _safe_goto(page, link, timeout_ms=20000)
+                except Exception:
+                    continue
+                flow_id = (urlparse(link).path or "/").strip("/").replace("/", "_") or "home"
+                flow_step_counters[flow_id] = flow_step_counters.get(flow_id, -1) + 1
+                step = CollectedStep(
+                    flow_id=flow_id,
+                    flow_step=flow_step_counters[flow_id],
+                    url=page.url,
+                    page_title=page.title() or flow_id,
+                    text=_extract_text(page),
+                    cta_labels=_extract_cta_labels(page),
+                )
+                collected.append(step)
+                discovered_flows.append(
+                    {
+                        "id": flow_id,
+                        "title": step.page_title[:60],
+                        "path": urlparse(step.url).path or "/",
+                        "risk_hint": "HIGH"
+                        if any(k in flow_id for k in ("checkout", "cancel", "pricing", "purchase", "buy"))
+                        else "MEDIUM",
+                    }
+                )
+
+                if depth < 2 and len(collected) + (len(queue) - qi) < max_steps:
+                    remaining = max_steps - len(collected) - (len(queue) - qi)
+                    for nlink in _discover_candidate_links(page, page.url, limit=remaining):
+                        if nlink not in visited:
+                            visited.add(nlink)
+                            queue.append((depth + 1, nlink))
+        finally:
+            browser.close()
 
     events: list[dict] = []
-    for i, step in enumerate(collected):
-        combined = step.text
+    for step in collected:
+        cta_section = ""
         if step.cta_labels:
-            combined = f"{combined}\n\nCTA labels: {', '.join(step.cta_labels)}"
+            cta_section = f"\n\nCTA labels: {', '.join(step.cta_labels)}"
+        body_budget = max(0, 4000 - len(cta_section))
+        body_compact = _compact_text(step.text, max_len=body_budget)
         events.append(
             {
-                "text": _compact_text(combined, max_len=4000),
+                "text": body_compact + cta_section,
                 "flow_id": step.flow_id,
-                "flow_step": i,
+                "flow_step": step.flow_step,
                 "url": step.url,
                 "page_title": step.page_title,
             }
@@ -173,4 +231,3 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
         "discovered_flows": discovered_flows,
         "pages_discovered": len(collected),
     }
-
