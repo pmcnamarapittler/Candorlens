@@ -42,16 +42,16 @@ class FlowCollector:
     def _extract_text(self, page):
         try:
             return page.evaluate("() => document.body.innerText")
-        except:
+        except Exception:
             return ""
-    
+
     def _extract_cta_labels(self, page):
         try:
             return page.evaluate("""() => {
                 const els = document.querySelectorAll('button, a, [role="button"], input[type="submit"]');
                 return Array.from(els).map(el => el.innerText || el.value || '').filter(t => t.trim()).slice(0, 20);
             }""")
-        except:
+        except Exception:
             return []
     
     def interactive_capture(self):
