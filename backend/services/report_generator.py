@@ -110,10 +110,12 @@ def _generate_pdf_report_playwright(payload: GenerateReportRequest) -> bytes:
     html = build_report_html(payload)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.set_content(html, wait_until="networkidle")
-        pdf_bytes = page.pdf(format="A4", print_background=True, margin={"top": "24px", "right": "24px", "bottom": "24px", "left": "24px"})
-        browser.close()
+        try:
+            page = browser.new_page()
+            page.set_content(html, wait_until="load")
+            pdf_bytes = page.pdf(format="A4", print_background=True, margin={"top": "24px", "right": "24px", "bottom": "24px", "left": "24px"})
+        finally:
+            browser.close()
     return pdf_bytes
 
 

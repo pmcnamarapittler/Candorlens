@@ -100,9 +100,12 @@ async def api_analyze_flow(body: AnalyzeFlowRequest) -> AnalyzeFlowResponse:
     response_model=CollectFlowResponse,
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
 )
-async def api_collect_flow(body: CollectFlowRequest) -> CollectFlowResponse:
+def api_collect_flow(body: CollectFlowRequest) -> CollectFlowResponse:
     """
     Collect website-specific flow events with Playwright for downstream /analyze-flow.
+
+    Defined as a sync handler so FastAPI runs it in a worker thread; sync_playwright
+    cannot run inside the asyncio event loop.
     """
     try:
         payload = collect_flow_events(str(body.website_url), max_steps=body.max_steps)
