@@ -1,17 +1,25 @@
 """
 Runtime flow ingestion for website-specific analysis.
-Uses Playwright to collect page text/CTA labels and converts to analyze-flow events.
+
+Uses Firecrawl `/v2/scrape` to render the homepage (markdown + outgoing
+links), filters those links to same-origin pages whose path matches a flow
+keyword, then scrapes each candidate. Returns the analyze-flow event input
+shape consumed by the BERT classifier.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from urllib.parse import urljoin, urlparse
+import os
+from urllib.parse import urlparse
 
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FIRECRAWL_BASE_URL = os.getenv("FIRECRAWL_BASE_URL", "https://api.firecrawl.dev/v2")
+FIRECRAWL_REQUEST_TIMEOUT = 90.0
+FIRECRAWL_SCRAPE_TIMEOUT_MS = 30000
 
 FLOW_KEYWORDS = (
     "checkout",
@@ -33,201 +41,166 @@ FLOW_KEYWORDS = (
     "purchase",
 )
 
-
-@dataclass
-class CollectedStep:
-    flow_id: str
-    flow_step: int
-    url: str
-    page_title: str
-    text: str
-    cta_labels: list[str]
+HIGH_RISK_KEYWORDS = ("checkout", "cancel", "pricing", "purchase", "buy", "billing")
 
 
-def _compact_text(value: str, max_len: int = 3000) -> str:
-    return " ".join((value or "").split())[:max_len]
-
-
-def _extract_cta_labels(page) -> list[str]:
-    try:
-        labels = page.evaluate(
-            """() => {
-                const els = document.querySelectorAll('button, a, [role="button"], input[type="submit"]');
-                return Array.from(els)
-                  .map(el => (el.innerText || el.value || '').trim())
-                  .filter(Boolean)
-                  .slice(0, 25);
-            }"""
-        )
-        return labels or []
-    except Exception:
-        return []
-
-
-def _extract_text(page) -> str:
-    try:
-        body = page.evaluate("() => document.body ? document.body.innerText : ''")
-        return _compact_text(body, max_len=5000)
-    except Exception:
+def _truncate(text: str, max_len: int) -> str:
+    if not text:
         return ""
+    return text if len(text) <= max_len else text[:max_len]
 
 
-def _safe_goto(page, url: str, timeout_ms: int) -> None:
+def _coerce_str(value) -> str:
+    if isinstance(value, list):
+        return value[0] if value else ""
+    return value or ""
+
+
+def _firecrawl_client(api_key: str) -> httpx.Client:
+    return httpx.Client(
+        base_url=FIRECRAWL_BASE_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        timeout=FIRECRAWL_REQUEST_TIMEOUT,
+    )
+
+
+def _firecrawl_scrape(client: httpx.Client, url: str, with_links: bool = False) -> tuple[str, str, str, list[str]]:
     """
-    Navigate and give SPAs a chance to hydrate. After domcontentloaded, briefly
-    wait for the body to render visible text. The wait is best-effort — sites
-    with persistent polling never reach networkidle, so we cap at 5s.
+    Returns (resolved_url, page_title, markdown, links). Raises on Firecrawl error.
     """
-    page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-    try:
-        page.wait_for_function(
-            "() => document.body && document.body.innerText.trim().length > 100",
-            timeout=5000,
-        )
-    except Exception:
-        pass
+    formats: list[str] = ["markdown"]
+    if with_links:
+        formats.append("links")
+    response = client.post(
+        "/scrape",
+        json={
+            "url": url,
+            "formats": formats,
+            "onlyMainContent": True,
+            "timeout": FIRECRAWL_SCRAPE_TIMEOUT_MS,
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get("success", True):
+        raise RuntimeError(f"Firecrawl /scrape returned failure: {payload}")
+    data = payload.get("data") or {}
+    metadata = data.get("metadata") or {}
+    title = _coerce_str(metadata.get("title"))
+    resolved_url = _coerce_str(metadata.get("url")) or url
+    markdown = data.get("markdown") or ""
+    links = data.get("links") or []
+    return resolved_url, title, markdown, links
 
 
-def _discover_candidate_links(page, base_url: str, limit: int = 8) -> list[str]:
-    parsed_base = urlparse(base_url)
-    same_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
+def _flow_id_from_url(url: str) -> str:
+    path = (urlparse(url).path or "/").strip("/")
+    return path.replace("/", "_") if path else "home"
 
-    try:
-        hrefs = page.evaluate(
-            """() => Array.from(document.querySelectorAll('a[href]'))
-                .map(a => a.getAttribute('href'))
-                .filter(Boolean)"""
-        )
-    except Exception:
-        hrefs = []
 
-    candidates: list[str] = []
-    for href in hrefs or []:
-        absolute = urljoin(base_url, href)
-        parsed = urlparse(absolute)
+def _select_candidate_urls(homepage_url: str, outgoing_links: list[str], max_candidates: int) -> list[str]:
+    """
+    Pick up to max_candidates same-origin URLs whose path matches a flow keyword.
+    Sort by path length so brand-owned navigation paths (`/pricing`) outrank deep
+    platform-hosted user content (`/some-user/Pricing-Plans-...`).
+    """
+    parsed_home = urlparse(homepage_url)
+    same_origin = f"{parsed_home.scheme}://{parsed_home.netloc}"
+
+    matches: list[tuple[int, str]] = []
+    seen: set[str] = {homepage_url}
+    for link in outgoing_links:
+        if not link:
+            continue
+        parsed = urlparse(link)
         if f"{parsed.scheme}://{parsed.netloc}" != same_origin:
             continue
-        path_lower = (parsed.path or "").lower()
-        if not any(k in path_lower for k in FLOW_KEYWORDS):
+        path = parsed.path or "/"
+        path_lower = path.lower()
+        if not any(keyword in path_lower for keyword in FLOW_KEYWORDS):
             continue
-        cleaned = f"{parsed.scheme}://{parsed.netloc}{parsed.path or '/'}"
-        if cleaned not in candidates:
-            candidates.append(cleaned)
-        if len(candidates) >= limit:
-            break
-    return candidates
+        canonical = f"{parsed.scheme}://{parsed.netloc}{path}"
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        matches.append((len(path), canonical))
+
+    matches.sort(key=lambda pair: pair[0])
+    return [url for _, url in matches[:max_candidates]]
 
 
 def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
     """
-    Collect website-specific flow steps and convert to analyze-flow event input shape.
-    Performs 2-hop discovery: links matching flow keywords are followed from the
-    homepage, and additional candidate links are harvested from each visited page
-    until max_steps is reached.
+    Collect website-specific flow steps via Firecrawl and convert to the
+    analyze-flow event input shape.
     """
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as exc:
-        raise RuntimeError("Playwright is required for runtime flow collection") from exc
+    api_key = os.getenv("FIRECRAWL_API_KEY")
+    if not api_key:
+        raise RuntimeError("FIRECRAWL_API_KEY env var is not set")
 
     max_steps = max(1, min(max_steps, 12))
-    collected: list[CollectedStep] = []
-    discovered_flows: list[dict] = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+    with _firecrawl_client(api_key) as client:
         try:
-            context = browser.new_context(
-                viewport={"width": 1420, "height": 900},
-                user_agent=USER_AGENT,
+            resolved_url, root_title, root_markdown, root_links = _firecrawl_scrape(
+                client, website_url, with_links=True
             )
-            page = context.new_page()
-            try:
-                _safe_goto(page, website_url, timeout_ms=25000)
-            except Exception as exc:
-                raise RuntimeError(f"Could not load website: {exc}") from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"Firecrawl could not load {website_url}: {exc}") from exc
 
-            root_text = _extract_text(page)
-            root_cta = _extract_cta_labels(page)
-            collected.append(
-                CollectedStep(
-                    flow_id="root",
-                    flow_step=0,
-                    url=page.url,
-                    page_title=page.title() or "Home",
-                    text=root_text,
-                    cta_labels=root_cta,
-                )
-            )
-
-            visited: set[str] = {page.url}
-            queue: list[tuple[int, str]] = [
-                (1, link)
-                for link in _discover_candidate_links(page, page.url, limit=max_steps - 1)
-                if link not in visited
-            ]
-            for _, link in queue:
-                visited.add(link)
-
-            qi = 0
-            flow_step_counters: dict[str, int] = {}
-            while qi < len(queue) and len(collected) < max_steps:
-                depth, link = queue[qi]
-                qi += 1
-                try:
-                    _safe_goto(page, link, timeout_ms=20000)
-                except Exception:
-                    continue
-                flow_id = (urlparse(link).path or "/").strip("/").replace("/", "_") or "home"
-                flow_step_counters[flow_id] = flow_step_counters.get(flow_id, -1) + 1
-                step = CollectedStep(
-                    flow_id=flow_id,
-                    flow_step=flow_step_counters[flow_id],
-                    url=page.url,
-                    page_title=page.title() or flow_id,
-                    text=_extract_text(page),
-                    cta_labels=_extract_cta_labels(page),
-                )
-                collected.append(step)
-                discovered_flows.append(
-                    {
-                        "id": flow_id,
-                        "title": step.page_title[:60],
-                        "path": urlparse(step.url).path or "/",
-                        "risk_hint": "HIGH"
-                        if any(k in flow_id for k in ("checkout", "cancel", "pricing", "purchase", "buy"))
-                        else "MEDIUM",
-                    }
-                )
-
-                if depth < 2 and len(collected) + (len(queue) - qi) < max_steps:
-                    remaining = max_steps - len(collected) - (len(queue) - qi)
-                    for nlink in _discover_candidate_links(page, page.url, limit=remaining):
-                        if nlink not in visited:
-                            visited.add(nlink)
-                            queue.append((depth + 1, nlink))
-        finally:
-            browser.close()
-
-    events: list[dict] = []
-    for step in collected:
-        cta_section = ""
-        if step.cta_labels:
-            cta_section = f"\n\nCTA labels: {', '.join(step.cta_labels)}"
-        body_budget = max(0, 4000 - len(cta_section))
-        body_compact = _compact_text(step.text, max_len=body_budget)
-        events.append(
+        events: list[dict] = [
             {
-                "text": body_compact + cta_section,
-                "flow_id": step.flow_id,
-                "flow_step": step.flow_step,
-                "url": step.url,
-                "page_title": step.page_title,
+                "text": _truncate(root_markdown, max_len=4000),
+                "flow_id": "root",
+                "flow_step": 0,
+                "url": resolved_url,
+                "page_title": root_title or "Home",
             }
-        )
+        ]
+        discovered_flows: list[dict] = []
+        flow_step_counters: dict[str, int] = {"root": 0}
+
+        candidates = _select_candidate_urls(resolved_url, root_links, max_steps - 1)
+
+        for candidate_url in candidates:
+            try:
+                page_url, page_title, page_markdown, _ = _firecrawl_scrape(
+                    client, candidate_url, with_links=False
+                )
+            except httpx.HTTPError:
+                continue
+            except RuntimeError:
+                continue
+
+            flow_id = _flow_id_from_url(candidate_url)
+            flow_step_counters[flow_id] = flow_step_counters.get(flow_id, -1) + 1
+            display_title = page_title or flow_id
+
+            events.append(
+                {
+                    "text": _truncate(page_markdown, max_len=4000),
+                    "flow_id": flow_id,
+                    "flow_step": flow_step_counters[flow_id],
+                    "url": page_url,
+                    "page_title": display_title,
+                }
+            )
+            discovered_flows.append(
+                {
+                    "id": flow_id,
+                    "title": display_title[:60],
+                    "path": urlparse(candidate_url).path or "/",
+                    "risk_hint": "HIGH"
+                    if any(keyword in flow_id for keyword in HIGH_RISK_KEYWORDS)
+                    else "MEDIUM",
+                }
+            )
 
     return {
         "events": events,
         "discovered_flows": discovered_flows,
-        "pages_discovered": len(collected),
+        "pages_discovered": len(events),
     }
