@@ -1,4 +1,9 @@
 {
+  "classifier_strategy": {
+    "mode": "three_class_plus_gating",
+    "benign_handling": "benign_by_gating",
+    "doc": "docs/CLASSIFIER_POLICY.md"
+  },
   "samples": 5,
   "accuracy": 1.0,
   "macro_f1": 1.0,

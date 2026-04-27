@@ -89,6 +89,11 @@ def _metrics(samples: list[dict[str, Any]]) -> dict[str, Any]:
     avg_snippets = sum(snippet_counts) / len(snippet_counts) if snippet_counts else 0.0
 
     return {
+        "classifier_strategy": {
+            "mode": "three_class_plus_gating",
+            "benign_handling": "benign_by_gating",
+            "doc": "docs/CLASSIFIER_POLICY.md",
+        },
         "samples": total,
         "accuracy": accuracy,
         "macro_f1": macro_f1,

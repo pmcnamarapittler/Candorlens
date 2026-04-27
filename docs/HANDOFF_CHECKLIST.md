@@ -30,6 +30,8 @@ Use this checklist for final handoff validation.
 ## 5) Quality Gates
 - [ ] Backend tests pass: `python -m pytest backend/tests`.
 - [ ] Frontend checks pass: `npm run lint && npm run test && npm run build` in `MVP UI/`.
+- [ ] Runtime eval artifact refreshed: `python scripts/evaluate_production_flow.py --output ml/evaluation/production_flow_eval.json`.
+- [ ] Runtime eval gates pass: `python scripts/check_eval_gates.py --metrics ml/evaluation/production_flow_eval.json`.
 - [ ] CI workflows are present and green on PR/main.
 
 ## 6) Deployment Readiness

@@ -35,6 +35,7 @@ docker run --rm -p 8000:8000 \
   -e REPORT_STORAGE_BACKEND=local \
   -e REPORT_STORAGE_PATH=data/reports \
   -e MODEL_PATH=/app/ml/models/bert_v1 \
+  -e FIRECRAWL_API_KEY="<firecrawl-api-key>" \
   candorlens-api
 ```
 
@@ -75,6 +76,7 @@ export ACR_LOGIN_SERVER="<acr-name>.azurecr.io"
 export CONTAINER_APP_NAME="<container-app-name>"
 export CONTAINER_ENV_NAME="<container-app-environment-name>"
 export STORAGE_CONNECTION_STRING="<azure-storage-connection-string>"
+export FIRECRAWL_API_KEY="<firecrawl-api-key>"
 export IMAGE_TAG="${ACR_LOGIN_SERVER}/candorlens-api:$(git rev-parse --short HEAD)"
 ```
 
@@ -102,7 +104,8 @@ az containerapp up \
     MODEL_PATH=/app/ml/models/bert_v1 \
     TAXONOMY_DIR=/app/taxonomy \
     REPORT_STORAGE_BACKEND=azure \
-    AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}"
+    AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
+    FIRECRAWL_API_KEY="${FIRECRAWL_API_KEY}"
 ```
 
 Get the public URL:
@@ -135,6 +138,7 @@ The workflow `.github/workflows/deploy-azure.yml` uses:
 - `AZURE_CONTAINER_APP_NAME`
 - `AZURE_RESOURCE_GROUP`
 - `AZURE_STORAGE_CONNECTION_STRING`
+- `FIRECRAWL_API_KEY`
 
 Trigger via manual `workflow_dispatch` after CI passes.
 

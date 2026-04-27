@@ -134,6 +134,8 @@ def test_collect_flow_events_uses_map_fallback_when_homepage_links_are_sparse(mo
     assert payload["discovery_debug"]["fallback_used"] is True
     assert [flow["path"] for flow in payload["discovered_flows"]] == ["/products", "/industries"]
     assert any(endpoint == "/map" for endpoint, _ in fake_client.posts)
+    first_scrape_payload = next(json for endpoint, json in fake_client.posts if endpoint == "/scrape")
+    assert first_scrape_payload["onlyMainContent"] is True
 
 
 def test_risk_hint_uses_flow_keywords():

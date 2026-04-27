@@ -350,7 +350,7 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
     with _firecrawl_client(api_key) as client:
         try:
             resolved_url, root_title, root_markdown, root_links = _firecrawl_scrape(
-                client, website_url, with_links=True, only_main_content=False
+                client, website_url, with_links=True, only_main_content=True
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(f"Firecrawl could not load {website_url}: {exc}") from exc

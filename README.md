@@ -235,6 +235,8 @@ Handoff docs:
 - `docs/MILESTONE_EVIDENCE.md`
 - `docs/HANDOFF_CHECKLIST.md`
 - `docs/DEMO_SCRIPT.md`
+- `docs/CLASSIFIER_POLICY.md`
+- `docs/EVALUATION_GATES.md`
 
 ---
 

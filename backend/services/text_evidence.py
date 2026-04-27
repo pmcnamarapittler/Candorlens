@@ -24,6 +24,31 @@ NOISE_PREFIXES = (
     "©",
 )
 
+NAV_ONLY_TERMS = {
+    "home",
+    "products",
+    "product",
+    "resources",
+    "pricing",
+    "plans",
+    "company",
+    "support",
+    "help",
+    "contact",
+    "about",
+    "blog",
+    "docs",
+    "documentation",
+    "features",
+    "learn more",
+}
+
+NAV_SEPARATOR_RE = re.compile(r"[|/>\-·•]+")
+CTA_FRAGMENT_RE = re.compile(
+    r"^(learn more|get started|start now|start free|book demo|contact sales|view pricing|read more)$",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class EvidenceSnippet:
@@ -51,12 +76,23 @@ def _is_noise(value: str) -> bool:
         return True
     if lower in {"products", "resources", "company", "support", "help", "pricing"}:
         return True
+    if lower in NAV_ONLY_TERMS:
+        return True
+    if CTA_FRAGMENT_RE.fullmatch(lower):
+        return True
     if any(lower.startswith(prefix) for prefix in NOISE_PREFIXES):
         return True
     if text.count("http") >= 2:
         return True
+    if NAV_SEPARATOR_RE.search(text):
+        nav_parts = [part.strip().lower() for part in NAV_SEPARATOR_RE.split(text) if part.strip()]
+        if nav_parts and len(nav_parts) <= 8 and all(part in NAV_ONLY_TERMS for part in nav_parts):
+            return True
     words = re.findall(r"[A-Za-z0-9$%]+", text)
     if len(words) < 3:
+        return True
+    if len(words) <= 5 and text.strip()[-1:] not in {".", "!", "?"}:
+        # Very short, punctuation-less fragments are commonly nav/CTA labels.
         return True
     return False
 

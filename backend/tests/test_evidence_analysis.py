@@ -110,6 +110,28 @@ def test_analyze_text_rejects_non_actionable_prediction(monkeypatch):
         raise AssertionError("Expected analyze_text to reject benign copy")
 
 
+def test_analyze_flow_suppresses_single_keyword_false_positive(monkeypatch):
+    monkeypatch.setattr(
+        analyze_service,
+        "get_classifier",
+        lambda: FakeClassifier(lambda _: ("fear_based_threat", 0.97)),
+    )
+
+    findings, _ = analyze_service.analyze_flow(
+        [
+            {
+                "text": "Security resources and product updates for enterprise teams.",
+                "flow_id": "resources",
+                "flow_step": 0,
+                "url": "https://example.com/resources",
+                "page_title": "Resources",
+            }
+        ]
+    )
+
+    assert findings == []
+
+
 def test_per_class_threshold_override(monkeypatch):
     monkeypatch.setenv("MIN_FINDING_CONFIDENCE_FEAR_BASED_THREAT", "0.98")
     assert evidence_gates.min_confidence_for_class("fear_based_threat") == 0.98

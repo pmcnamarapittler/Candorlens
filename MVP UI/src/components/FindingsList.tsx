@@ -40,10 +40,13 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
   const pagesScanned = new Set(findings.map((f) => f.page)).size;
   const score = Math.max(0, 100 - findings.length * 10);
 
+  const availableFlows = ['All Flows', ...Array.from(new Set(findings.map((finding) => finding.flow).filter(Boolean))).sort()];
+
   const filteredFindings = findings.filter(f => {
     if (filter === 'High') return f.severity === 'HIGH';
     if (filter === 'Medium') return f.severity === 'MEDIUM';
     if (filter === 'Low') return f.severity === 'LOW';
+    if (flowFilter !== 'All Flows' && f.flow !== flowFilter) return false;
     return true;
   });
 
@@ -120,10 +123,17 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
 
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-[#bbb]">Flow:</span>
-            <button className="flex items-center gap-2 px-3 py-1.5 border border-[#f0f0f0] bg-white rounded-lg text-[12px] text-[#555] hover:bg-[#fafafa]">
-              {flowFilter}
-              <ChevronDown size={14} className="text-[#bbb]" />
-            </button>
+            <select
+              value={flowFilter}
+              onChange={(event) => setFlowFilter(event.target.value)}
+              className="flex items-center gap-2 px-3 py-1.5 border border-[#f0f0f0] bg-white rounded-lg text-[12px] text-[#555] hover:bg-[#fafafa]"
+            >
+              {availableFlows.map((flow) => (
+                <option key={flow} value={flow}>
+                  {flow}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

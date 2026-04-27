@@ -65,6 +65,8 @@ curl -s -X POST http://localhost:8000/generate-report \
 ```bash
 python -m pytest backend/tests
 cd "MVP UI" && npm run lint && npm run test && npm run build
+python scripts/evaluate_production_flow.py --output ml/evaluation/production_flow_eval.json
+python scripts/check_eval_gates.py --metrics ml/evaluation/production_flow_eval.json
 ```
 
 ## D7 - Handoff Readiness
@@ -72,6 +74,8 @@ cd "MVP UI" && npm run lint && npm run test && npm run build
 ### Evidence
 - API runbook: `docs/API.md`
 - Deployment runbook: `docs/DEPLOYMENT.md`
+- Classifier strategy: `docs/CLASSIFIER_POLICY.md`
+- Evaluation thresholds: `docs/EVALUATION_GATES.md`
 - Handoff checklist: `docs/HANDOFF_CHECKLIST.md`
 - Demo script: `docs/DEMO_SCRIPT.md`
 

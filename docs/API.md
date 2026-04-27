@@ -36,7 +36,8 @@ python scripts/verify_model_artifacts.py --model-path ml/models/bert_v1
 
 ### POST /analyze-text
 
-Analyze a single string. Returns one finding with detected class, confidence, and legal mapping.
+Analyze a single string with the same confidence/lexical gates used in flow analysis.
+If no actionable evidence is detected, returns `400`.
 
 **Request body:**
 
@@ -127,6 +128,7 @@ for `/analyze-flow`. Set `FIRECRAWL_API_KEY` before calling this endpoint.
 - `events`: list of `{ text, flow_id, flow_step, url?, page_title? }`
 - `discovered_flows`: runtime discovered flow summary metadata
 - `pages_discovered`: number of visited pages used to build events
+- `discovery_debug`: diagnostics including `root_url`, `resolved_url`, `links_returned`, `same_origin_links`, `candidate_urls`, `fallback_used`, and `skipped_reason_counts`
 
 ---
 
@@ -189,7 +191,7 @@ Generate a compliance PDF report from a structured findings payload.
 Validation notes:
 - `website_url` must be a valid absolute URL.
 - `company_name` is required (1-240 chars).
-- `findings` must contain at least one item.
+- `findings` may be empty for a \"clean scan\" report.
 - `severity` must be one of `HIGH`, `MEDIUM`, or `LOW`.
 - `confidence` must be between `0.0` and `1.0` when provided.
 
@@ -219,3 +221,13 @@ docker run -p 8000:8000 -e MODEL_PATH=/app/ml/models/bert_v1 candorlens-api
 ```
 
 For Azure Container Apps, set `MODEL_PATH` and `TAXONOMY_DIR` if you override default paths; configure `AZURE_STORAGE_CONNECTION_STRING` for report storage.
+
+---
+
+## Classifier policy
+
+Production currently uses a **3-class model + runtime gates**. `benign` is inferred by gating when no snippet passes thresholds, not predicted as a native model class.
+
+See:
+- `docs/CLASSIFIER_POLICY.md`
+- `docs/EVALUATION_GATES.md`

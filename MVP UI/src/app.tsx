@@ -19,6 +19,8 @@ export default function App() {
   const [allFindings, setAllFindings] = useState<Finding[]>([]);
   const [appError, setAppError] = useState<string | null>(null);
   const [isHydratingFromOnboarding, setIsHydratingFromOnboarding] = useState(false);
+  const [isVerificationScanRunning, setIsVerificationScanRunning] = useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] = useState<string | null>(null);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -86,6 +88,68 @@ export default function App() {
     setActiveTab('findings');
   };
 
+  const mergeVerificationFindings = (incoming: Finding[]) => {
+    if (!incoming.length) return;
+    setAllFindings((prev) => {
+      const byCode = new Map(incoming.map((finding) => [finding.code, finding]));
+      const next = prev.map((existing) => {
+        const replacement = byCode.get(existing.code);
+        if (!replacement) return existing;
+        byCode.delete(existing.code);
+        return {
+          ...existing,
+          ...replacement,
+          status: replacement.status ?? existing.status,
+        };
+      });
+      return [...next, ...Array.from(byCode.values())];
+    });
+  };
+
+  const handleRequestVerificationScan = async () => {
+    if (isVerificationScanRunning) return;
+    const websiteUrl = onboardingData?.websiteUrl;
+    if (!websiteUrl) {
+      setVerificationStatusMessage('Missing website URL. Start a new scan from onboarding first.');
+      return;
+    }
+
+    const openFlowIds: string[] = Array.from(
+      new Set(
+        allFindings
+          .filter((finding) => finding.status === 'Open')
+          .map((finding) => finding.flow)
+          .filter((flowId): flowId is string => Boolean(flowId)),
+      ),
+    );
+    if (!openFlowIds.length) {
+      setVerificationStatusMessage('No OPEN findings to verify.');
+      return;
+    }
+
+    setIsVerificationScanRunning(true);
+    setVerificationStatusMessage('Running verification scan for unresolved findings...');
+    setAppError(null);
+    try {
+      const collected = await scannerService.discoverFlows(websiteUrl);
+      const discoveredFlowIds = new Set(collected.discoveredFlows.map((flow) => flow.id));
+      const selectedFlowIds = openFlowIds.filter((flowId) => discoveredFlowIds.has(flowId));
+      const scanResult = await scannerService.scanCollectedFlow(
+        collected,
+        selectedFlowIds.length ? selectedFlowIds : undefined,
+      );
+      mergeVerificationFindings(scanResult.findings);
+      setVerificationStatusMessage(`Verification completed. ${scanResult.findings.length} finding(s) returned.`);
+      setActiveTab('remediation');
+    } catch (error) {
+      console.error('Verification scan failed:', error);
+      setVerificationStatusMessage('Verification scan failed. Please retry.');
+      setAppError('Verification scan failed. Please retry.');
+    } finally {
+      setIsVerificationScanRunning(false);
+    }
+  };
+
   const renderContent = () => {
     if (selectedFinding) {
       const currentIndex = allFindings.findIndex(f => f.id === selectedFinding.id);
@@ -139,6 +203,9 @@ export default function App() {
             findings={allFindings}
             onStatusChange={handleStatusChange}
             onSelectFinding={(finding) => setSelectedFinding(finding)}
+            onRequestVerificationScan={handleRequestVerificationScan}
+            isVerificationScanRunning={isVerificationScanRunning}
+            verificationStatusMessage={verificationStatusMessage}
           />
         );
       case 'report':
@@ -155,7 +222,9 @@ export default function App() {
           <ReAuditView 
             onboardingData={onboardingData}
             onCancel={() => handleTabChange('overview')}
-            onSubmit={() => handleTabChange('overview')}
+            onSubmit={handleRequestVerificationScan}
+            isVerificationScanRunning={isVerificationScanRunning}
+            verificationStatusMessage={verificationStatusMessage}
           />
         );
       default:

@@ -44,6 +44,9 @@ interface RemediationTrackerProps {
   findings: Finding[];
   onStatusChange: (id: string, status: Finding['status']) => void;
   onSelectFinding: (finding: Finding) => void;
+  onRequestVerificationScan: () => void;
+  isVerificationScanRunning?: boolean;
+  verificationStatusMessage?: string | null;
 }
 
 type ColumnId = 'Open' | 'In Progress' | 'Completed';
@@ -173,10 +176,21 @@ const SortableFindingCard = ({ finding, onSelect }: SortableFindingCardProps) =>
   );
 };
 
-export default function RemediationTracker({ findings, onStatusChange, onSelectFinding }: RemediationTrackerProps) {
+export default function RemediationTracker({
+  findings,
+  onStatusChange,
+  onSelectFinding,
+  onRequestVerificationScan,
+  isVerificationScanRunning = false,
+  verificationStatusMessage = null,
+}: RemediationTrackerProps) {
   const [view, setView] = useState<'board' | 'list'>('board');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeFinding, setActiveFinding] = useState<Finding | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [severityFilter, setSeverityFilter] = useState<'All' | Finding['severity']>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | Finding['status']>('All');
+  const [flowFilter, setFlowFilter] = useState('All Flows');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -189,14 +203,40 @@ export default function RemediationTracker({ findings, onStatusChange, onSelectF
     })
   );
 
+  const availableFlows = useMemo(
+    () => ['All Flows', ...Array.from(new Set(findings.map((finding) => finding.flow).filter(Boolean))).sort()],
+    [findings],
+  );
+
+  const filteredFindings = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return findings.filter((finding) => {
+      if (severityFilter !== 'All' && finding.severity !== severityFilter) return false;
+      if (statusFilter !== 'All' && finding.status !== statusFilter) return false;
+      if (flowFilter !== 'All Flows' && finding.flow !== flowFilter) return false;
+      if (!normalizedQuery) return true;
+      const haystack = [
+        finding.title,
+        finding.description,
+        finding.code,
+        finding.page,
+        finding.flow,
+        finding.regulation,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [findings, flowFilter, searchQuery, severityFilter, statusFilter]);
+
   const columns = useMemo(() => {
     const grouped = {
-      'Open': findings.filter(f => f.status === 'Open'),
-      'In Progress': findings.filter(f => f.status === 'In Progress'),
-      'Completed': findings.filter(f => f.status === 'Completed'),
+      'Open': filteredFindings.filter(f => f.status === 'Open'),
+      'In Progress': filteredFindings.filter(f => f.status === 'In Progress'),
+      'Completed': filteredFindings.filter(f => f.status === 'Completed'),
     };
     return grouped;
-  }, [findings]);
+  }, [filteredFindings]);
 
   const stats = useMemo(() => {
     const total = findings.length;
@@ -270,10 +310,19 @@ export default function RemediationTracker({ findings, onStatusChange, onSelectF
           <h1 className="text-[28px] font-light tracking-tight text-[#111]">Remediation Tracker</h1>
           <p className="text-[13px] text-[#888] mt-1">Track progress on fixing compliance violations</p>
         </div>
-        <button className="px-5 py-2.5 bg-[#111] text-white text-[12px] font-medium rounded-lg hover:bg-[#222] transition-colors shadow-sm flex items-center gap-2">
-          Request Verification Scan
+        <button
+          onClick={onRequestVerificationScan}
+          disabled={isVerificationScanRunning}
+          className="px-5 py-2.5 bg-[#111] text-white text-[12px] font-medium rounded-lg hover:bg-[#222] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isVerificationScanRunning ? 'Running Verification...' : 'Request Verification Scan'}
         </button>
       </div>
+      {verificationStatusMessage && (
+        <div className="mb-4 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 text-[12px] text-[#4b5563]">
+          {verificationStatusMessage}
+        </div>
+      )}
 
       {/* Summary Card */}
       <div className="bg-white border border-[#f0f0f0] rounded-2xl p-8 mb-8 shadow-sm">
@@ -369,13 +418,49 @@ export default function RemediationTracker({ findings, onStatusChange, onSelectF
             <input 
               type="text" 
               placeholder="Search issues..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               className="pl-9 pr-4 py-2 bg-white border border-[#eee] rounded-lg text-[12px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 w-64"
             />
           </div>
-          <button className="p-2 bg-white border border-[#eee] rounded-lg text-[#888] hover:text-[#111] transition-colors">
-            <Filter size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-[#888]" />
+            <select
+              value={severityFilter}
+              onChange={(event) => setSeverityFilter(event.target.value as 'All' | Finding['severity'])}
+              className="px-2 py-2 bg-white border border-[#eee] rounded-lg text-[12px] text-[#555] focus:outline-none"
+            >
+              <option value="All">All severities</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as 'All' | Finding['status'])}
+              className="px-2 py-2 bg-white border border-[#eee] rounded-lg text-[12px] text-[#555] focus:outline-none"
+            >
+              <option value="All">All statuses</option>
+              <option value="Open">Open</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Fixed</option>
+            </select>
+            <select
+              value={flowFilter}
+              onChange={(event) => setFlowFilter(event.target.value)}
+              className="px-2 py-2 bg-white border border-[#eee] rounded-lg text-[12px] text-[#555] focus:outline-none"
+            >
+              {availableFlows.map((flow) => (
+                <option key={flow} value={flow}>
+                  {flow}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+      </div>
+      <div className="mb-4 text-[11px] text-[#888]">
+        Showing {filteredFindings.length} of {findings.length} issues after filters.
       </div>
 
       {/* Kanban Board */}
@@ -492,7 +577,7 @@ export default function RemediationTracker({ findings, onStatusChange, onSelectF
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f5f5f5]">
-              {findings.map(finding => (
+              {filteredFindings.map(finding => (
                 <tr 
                   key={finding.id} 
                   className="hover:bg-[#fcfcfc] transition-colors cursor-pointer group"

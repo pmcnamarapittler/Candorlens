@@ -83,7 +83,14 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-function confidenceToPercent(confidence: LanguageEventResponse["confidence"]): number {
+function confidenceToPercent(
+  confidence: LanguageEventResponse["confidence"],
+  rawConfidence?: number | null,
+): number {
+  if (typeof rawConfidence === "number" && Number.isFinite(rawConfidence)) {
+    const normalized = Math.max(0, Math.min(1, rawConfidence));
+    return Math.round(normalized * 100);
+  }
   if (confidence === "HIGH") return 90;
   if (confidence === "MEDIUM") return 75;
   return 60;
@@ -192,7 +199,7 @@ function mapToFinding(event: LanguageEventResponse): Finding {
     flow: event.flow_id || "single",
     element: pageTitle,
     status: "Open",
-    confidence: confidenceToPercent(event.confidence),
+    confidence: confidenceToPercent(event.confidence, event.raw_confidence),
     capturedAt: new Date().toISOString(),
     attackClass: event.attack_class,
     rawConfidence: event.raw_confidence || undefined,
