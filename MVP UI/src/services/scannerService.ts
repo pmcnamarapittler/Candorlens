@@ -1,5 +1,5 @@
 import { Finding } from "../types";
-import { analyzeFlow, collectFlow } from "./apiClient";
+import { analyzeFlow, analyzeText, collectFlow } from "./apiClient";
 
 interface LanguageEventResponse {
   event_id: string;
@@ -11,6 +11,10 @@ interface LanguageEventResponse {
   flow_step: number;
   url?: string | null;
   page_title?: string | null;
+  raw_confidence?: number | null;
+  evidence_text?: string | null;
+  context_text?: string | null;
+  snippet_index?: number | null;
   legal_mapping: {
     regulations: Array<{
       name: string;
@@ -40,6 +44,17 @@ export interface DiscoveredFlow {
   risk_hint: string;
 }
 
+export interface DiscoveryDebug {
+  root_url?: string;
+  resolved_url?: string;
+  links_returned?: number;
+  same_origin_links?: number;
+  candidate_urls?: string[];
+  fallback_used?: boolean;
+  skipped_reason_counts?: Record<string, number>;
+  map_error?: string;
+}
+
 export interface CollectedFlowData {
   events: Array<{
     text: string;
@@ -50,12 +65,22 @@ export interface CollectedFlowData {
   }>;
   discoveredFlows: DiscoveredFlow[];
   pagesDiscovered: number;
+  discoveryDebug?: DiscoveryDebug | null;
 }
 
 export interface ScanResult {
   findings: Finding[];
   discoveredFlows: DiscoveredFlow[];
   pagesDiscovered: number;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function confidenceToPercent(confidence: LanguageEventResponse["confidence"]): number {
@@ -90,6 +115,7 @@ export const scannerService = {
       events: collected.events,
       discoveredFlows,
       pagesDiscovered: collected.pages_discovered,
+      discoveryDebug: collected.discovery_debug,
     };
   },
 
@@ -122,6 +148,22 @@ export const scannerService = {
     const collected = await scannerService.discoverFlows(url);
     return scannerService.scanCollectedFlow(collected);
   },
+
+  scanText: async (text: string): Promise<ScanResult> => {
+    const finding = mapToFinding(await analyzeText(text));
+    return {
+      findings: [finding],
+      discoveredFlows: [],
+      pagesDiscovered: 1,
+    };
+  },
+
+  scanInput: async (input: string): Promise<ScanResult> => {
+    if (isHttpUrl(input)) {
+      return scannerService.scanUrl(input);
+    }
+    return scannerService.scanText(input);
+  },
 };
 
 function mapToFinding(event: LanguageEventResponse): Finding {
@@ -153,12 +195,16 @@ function mapToFinding(event: LanguageEventResponse): Finding {
     confidence: confidenceToPercent(event.confidence),
     capturedAt: new Date().toISOString(),
     attackClass: event.attack_class,
+    rawConfidence: event.raw_confidence || undefined,
+    evidenceText: event.evidence_text || event.text,
+    contextText: event.context_text || undefined,
+    snippetIndex: event.snippet_index ?? undefined,
     sourceUrl: event.url || undefined,
     pageTitle,
     flowStep: event.flow_step,
     whySeverity: `Risk severity assigned by legal mapper: ${event.legal_mapping.risk_severity}.`,
     explanation: event.rationale,
-    extractedText: event.text,
+    extractedText: event.evidence_text || event.text,
     regulationSection,
     legalExcerpt: firstRegulation?.citation || "",
     violationReason: event.legal_mapping.remediation_guidance || event.rationale,

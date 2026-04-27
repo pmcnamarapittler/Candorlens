@@ -2,7 +2,7 @@ const API_BASE_URL =
   (globalThis as { __CANDORLENS_API_BASE_URL__?: string }).__CANDORLENS_API_BASE_URL__ ||
   "http://localhost:8000";
 
-interface AnalyzeTextResponse {
+export interface AnalyzeTextResponse {
   event_id: string;
   text: string;
   attack_class: "forced_continuity" | "false_urgency" | "fear_based_threat";
@@ -12,6 +12,10 @@ interface AnalyzeTextResponse {
   flow_step: number;
   url?: string | null;
   page_title?: string | null;
+  raw_confidence?: number | null;
+  evidence_text?: string | null;
+  context_text?: string | null;
+  snippet_index?: number | null;
   legal_mapping: {
     regulations: Array<{
       name: string;
@@ -48,9 +52,19 @@ export interface CollectFlowResponse {
     risk_hint: string;
   }>;
   pages_discovered: number;
+  discovery_debug?: {
+    root_url?: string;
+    resolved_url?: string;
+    links_returned?: number;
+    same_origin_links?: number;
+    candidate_urls?: string[];
+    fallback_used?: boolean;
+    skipped_reason_counts?: Record<string, number>;
+    map_error?: string;
+  } | null;
 }
 
-interface ReportFindingInput {
+export interface ReportFindingInput {
   id: string;
   title: string;
   severity: "HIGH" | "MEDIUM" | "LOW";
@@ -59,9 +73,16 @@ interface ReportFindingInput {
   description?: string;
   extracted_text?: string;
   remediation_guidance?: string;
+  attack_class?: "forced_continuity" | "false_urgency" | "fear_based_threat";
+  raw_confidence?: number;
+  source_url?: string;
+  page_title?: string;
+  flow_id?: string;
+  flow_step?: number;
+  evidence_text?: string;
 }
 
-interface GenerateReportInput {
+export interface GenerateReportInput {
   website_url: string;
   company_name: string;
   findings: ReportFindingInput[];

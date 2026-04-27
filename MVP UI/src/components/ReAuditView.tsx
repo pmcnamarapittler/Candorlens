@@ -51,6 +51,10 @@ export default function ReAuditView({ onboardingData, onCancel, onSubmit }: ReAu
       </header>
 
       <div className="p-10 max-w-5xl space-y-12">
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5" />
+          <p>This re-audit screen is currently a demo preview and is not yet wired to live finding metadata from the latest scan.</p>
+        </div>
         {/* Select Audit Type */}
         <section>
           <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#bbb] mb-6">Select Audit Type</h3>

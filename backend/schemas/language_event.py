@@ -49,6 +49,9 @@ class AnalyzedEvent(BaseModel):
     flow_step: int = Field(..., ge=0)
     url: str | None = None
     page_title: str | None = None
+    evidence_text: str | None = None
+    context_text: str | None = None
+    snippet_index: int | None = None
     attack_class: str  # forced_continuity | false_urgency | fear_based_threat
     raw_confidence: float = Field(..., ge=0, le=1)
     legal_mapping: LegalMappingResult
@@ -78,6 +81,10 @@ class LanguageEventResponse(BaseModel):
     flow_id: str
     url: str | None = None
     page_title: str | None = None
+    raw_confidence: float | None = None
+    evidence_text: str | None = None
+    context_text: str | None = None
+    snippet_index: int | None = None
     rationale: str
     source: Literal["model_prediction"]
     risk_outcome: str | None = None
@@ -118,6 +125,10 @@ def to_language_event(analyzed: AnalyzedEvent, event_id: str, confidence_enum: s
         flow_id=analyzed.flow_id,
         url=analyzed.url,
         page_title=analyzed.page_title,
+        raw_confidence=analyzed.raw_confidence,
+        evidence_text=analyzed.evidence_text or analyzed.text,
+        context_text=analyzed.context_text,
+        snippet_index=analyzed.snippet_index,
         rationale=rationale,
         source="model_prediction",
         jurisdiction_mapping=jurisdiction_mapping,

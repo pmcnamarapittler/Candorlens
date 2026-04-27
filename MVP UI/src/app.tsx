@@ -52,6 +52,13 @@ export default function App() {
           description: finding.description,
           extracted_text: finding.extractedText,
           remediation_guidance: finding.violationReason,
+          attack_class: finding.attackClass,
+          raw_confidence: finding.rawConfidence,
+          source_url: finding.sourceUrl,
+          page_title: finding.pageTitle,
+          flow_id: finding.flow,
+          flow_step: finding.flowStep,
+          evidence_text: finding.evidenceText,
         })),
       };
 

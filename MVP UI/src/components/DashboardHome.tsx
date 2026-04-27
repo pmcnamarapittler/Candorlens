@@ -41,7 +41,7 @@ export default function DashboardHome({
     onClearError();
     setIsScanning(true);
     try {
-      const results = await scannerService.scanUrl(urlInput);
+      const results = await scannerService.scanInput(urlInput.trim());
       onScanComplete(results.findings);
     } catch (error) {
       console.error('Scan failed:', error);
@@ -96,7 +96,7 @@ export default function DashboardHome({
               type="text"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="Enter text or URL to analyze"
+              placeholder="Enter website URL or text to analyze"
               className="w-full bg-transparent border-none py-3 sm:py-4 pl-11 pr-4 text-sm focus:outline-none"
             />
           </div>

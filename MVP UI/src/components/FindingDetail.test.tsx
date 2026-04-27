@@ -20,6 +20,9 @@ describe('FindingDetail', () => {
           sourceUrl: 'https://example.com/pricing',
           pageTitle: 'Pricing',
           flowStep: 0,
+          evidenceText: 'Offer expires soon',
+          contextText: 'Pricing page copy. Offer expires soon. Compare plans.',
+          snippetIndex: 1,
           extractedText: 'Offer expires soon',
           capturedAt: '2026-04-26T23:00:00.000Z',
           explanation: 'Remove fabricated urgency.',
@@ -33,7 +36,10 @@ describe('FindingDetail', () => {
     );
 
     expect(screen.getByText('Page Context')).toBeInTheDocument();
+    expect(screen.getAllByText('Violated Text').length).toBeGreaterThan(0);
+    expect(screen.getByText('Surrounding Context')).toBeInTheDocument();
     expect(screen.getByText('https://example.com/pricing')).toBeInTheDocument();
+    expect(screen.getAllByText(/Offer expires soon/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('False Urgency').length).toBeGreaterThan(0);
     expect(screen.queryByText('Screenshot Analysis')).not.toBeInTheDocument();
     expect(screen.queryByText('Forced Action')).not.toBeInTheDocument();

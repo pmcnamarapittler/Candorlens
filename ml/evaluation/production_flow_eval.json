@@ -1,0 +1,46 @@
+{
+  "samples": 5,
+  "accuracy": 1.0,
+  "macro_f1": 1.0,
+  "per_class": {
+    "forced_continuity": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "false_urgency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "fear_based_threat": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    }
+  },
+  "confusion": {
+    "forced_continuity": {
+      "forced_continuity": 1
+    },
+    "false_urgency": {
+      "false_urgency": 1
+    },
+    "fear_based_threat": {
+      "fear_based_threat": 1
+    },
+    "benign": {
+      "benign": 2
+    }
+  },
+  "benign_false_positives": 0,
+  "average_snippets_per_input": 1.0,
+  "mean_raw_confidence_by_predicted_class": {
+    "forced_continuity": 0.8437808752059937,
+    "false_urgency": 0.8740118145942688,
+    "fear_based_threat": 0.8142232298851013
+  }
+}

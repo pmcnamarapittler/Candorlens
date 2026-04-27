@@ -131,15 +131,23 @@ export default function FindingDetail({
               </div>
               <div>
                 <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium mb-1">Flow</p>
-                <p className="text-[#555]">{finding.flow} · Step {finding.flowStep ?? 0}</p>
+                <p className="text-[#555]">{finding.flow} · Step {finding.flowStep ?? 0}{finding.snippetIndex !== undefined ? ` · Snippet ${finding.snippetIndex + 1}` : ''}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium mb-2">Detected Text</p>
+              <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium mb-2">Violated Text</p>
               <div className="p-4 bg-red-50/40 border border-red-100 rounded-xl italic text-[12px] text-[#555] leading-relaxed">
-                "{finding.extractedText || 'No extracted text was returned for this finding.'}"
+                "{finding.evidenceText || finding.extractedText || 'No violated text was returned for this finding.'}"
               </div>
+              {finding.contextText && (
+                <div className="mt-3">
+                  <p className="text-[9px] uppercase tracking-wider text-[#bbb] font-medium mb-2">Surrounding Context</p>
+                  <div className="p-4 bg-[#fcfcfc] border border-[#f0f0f0] rounded-xl text-[11px] text-[#777] leading-relaxed">
+                    {finding.contextText}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -223,11 +231,11 @@ export default function FindingDetail({
               </p>
             </div>
 
-            {/* Extracted Text */}
+            {/* Violated Text */}
             <div>
-              <h4 className="text-[10px] uppercase tracking-wider text-[#bbb] font-medium mb-2">Extracted Text</h4>
+              <h4 className="text-[10px] uppercase tracking-wider text-[#bbb] font-medium mb-2">Violated Text</h4>
               <div className="p-4 bg-[#fcfcfc] border border-[#f0f0f0] rounded-xl italic text-[12px] text-[#555] leading-relaxed">
-                "{finding.extractedText || 'No extracted text was returned for this finding.'}"
+                "{finding.evidenceText || finding.extractedText || 'No violated text was returned for this finding.'}"
               </div>
             </div>
 

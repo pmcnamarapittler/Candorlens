@@ -24,10 +24,14 @@ def build_report_html(payload: GenerateReportRequest) -> str:
               <td>{escape(finding.id)}</td>
               <td>{escape(finding.title)}</td>
               <td>{escape(finding.regulation)}</td>
+              <td>{escape(finding.attack_class or "N/A")}</td>
+              <td>{escape(str(finding.raw_confidence) if finding.raw_confidence is not None else "N/A")}</td>
+              <td>{escape(str(finding.source_url) if finding.source_url else "N/A")}</td>
+              <td>{escape((finding.evidence_text or finding.extracted_text or "")[:160] or "N/A")}</td>
             </tr>
             """
         )
-    table_rows = "\n".join(rows) if rows else '<tr><td colspan="4">No findings</td></tr>'
+    table_rows = "\n".join(rows) if rows else '<tr><td colspan="8">No findings</td></tr>'
 
     return f"""
 <!doctype html>
@@ -164,7 +168,7 @@ def build_report_html(payload: GenerateReportRequest) -> str:
     <div class="section-title">Detailed Findings</div>
     <table>
       <thead>
-        <tr><th>Severity</th><th>Code</th><th>Finding</th><th>Regulation</th></tr>
+        <tr><th>Severity</th><th>Code</th><th>Finding</th><th>Regulation</th><th>Class</th><th>Raw Confidence</th><th>Source URL</th><th>Evidence</th></tr>
       </thead>
       <tbody>
         {table_rows}

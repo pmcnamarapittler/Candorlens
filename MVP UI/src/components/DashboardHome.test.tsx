@@ -4,7 +4,7 @@ import { scannerService } from '../services/scannerService';
 
 vi.mock('../services/scannerService', () => ({
   scannerService: {
-    scanUrl: vi.fn(),
+    scanInput: vi.fn(),
   },
 }));
 
@@ -26,7 +26,7 @@ describe('DashboardHome', () => {
       },
     ];
     const onScanComplete = vi.fn();
-    vi.mocked(scannerService.scanUrl).mockResolvedValue({
+    vi.mocked(scannerService.scanInput).mockResolvedValue({
       findings,
       discoveredFlows: [],
       pagesDiscovered: 1,
@@ -43,12 +43,12 @@ describe('DashboardHome', () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText('Enter text or URL to analyze');
+    const input = screen.getByPlaceholderText('Enter website URL or text to analyze');
     fireEvent.change(input, { target: { value: 'Start your free trial' } });
     fireEvent.click(screen.getByText('Scan'));
 
     await waitFor(() => {
-      expect(scannerService.scanUrl).toHaveBeenCalledWith('Start your free trial');
+      expect(scannerService.scanInput).toHaveBeenCalledWith('Start your free trial');
       expect(onScanComplete).toHaveBeenCalledWith(findings);
     });
   });

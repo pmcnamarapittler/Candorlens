@@ -29,6 +29,10 @@ export interface Finding {
   status: 'Open' | 'In Progress' | 'Completed';
   confidence: number;
   attackClass?: 'forced_continuity' | 'false_urgency' | 'fear_based_threat';
+  rawConfidence?: number;
+  evidenceText?: string;
+  contextText?: string;
+  snippetIndex?: number;
   sourceUrl?: string;
   pageTitle?: string;
   flowStep?: number;

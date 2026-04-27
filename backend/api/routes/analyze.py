@@ -56,6 +56,7 @@ class CollectFlowResponse(BaseModel):
     events: list[FlowEventInput]
     discovered_flows: list[dict]
     pages_discovered: int
+    discovery_debug: dict | None = None
 
 
 @router.post(
@@ -115,6 +116,7 @@ def api_collect_flow(body: CollectFlowRequest) -> CollectFlowResponse:
             events=events,
             discovered_flows=payload.get("discovered_flows", []),
             pages_discovered=payload.get("pages_discovered", len(events)),
+            discovery_debug=payload.get("discovery_debug"),
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

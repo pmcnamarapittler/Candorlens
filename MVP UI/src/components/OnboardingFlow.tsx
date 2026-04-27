@@ -87,6 +87,7 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
   const [collectedFlowData, setCollectedFlowData] = useState<CollectedFlowData | null>(null);
   const [pagesDiscovered, setPagesDiscovered] = useState(0);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const [discoveryDebug, setDiscoveryDebug] = useState<CollectedFlowData["discoveryDebug"]>(null);
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
@@ -110,6 +111,7 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
               setCollectedFlowData(result);
               setDiscoveredFlows(result.discoveredFlows || []);
               setPagesDiscovered(result.pagesDiscovered || 0);
+              setDiscoveryDebug(result.discoveryDebug || null);
               const suggested = (result.discoveredFlows || []).slice(0, 5).map((flow) => flow.id);
               if (suggested.length) {
                 setSelectedFlows(suggested);
@@ -129,6 +131,7 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
             events={collectedFlowData?.events || []}
             pagesDiscovered={pagesDiscovered}
             discoveryError={discoveryError}
+            discoveryDebug={discoveryDebug}
             onNext={handleNext} 
             onBack={() => setStep(1)} 
           />
@@ -329,19 +332,28 @@ function Step1({ formData, setFormData, onNext }: any) {
 function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onError, onComplete }: any) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('Initializing crawler...');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const runDiscovery = async () => {
       if (!onDiscoverFlows || !websiteUrl) return;
       try {
+        setStatus('Calling Firecrawl...');
         const result = await onDiscoverFlows(websiteUrl);
         if (!cancelled && onDiscovered) {
           onDiscovered(result);
+          setProgress(100);
+          setStatus('Discovery complete');
+          setTimeout(onComplete, 500);
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Flow discovery failed.';
         if (!cancelled && onError) {
-          onError(error instanceof Error ? error.message : 'Flow discovery failed.');
+          setError(message);
+          setProgress(100);
+          setStatus('Discovery failed');
+          onError(message);
         }
       }
     };
@@ -349,12 +361,8 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onErr
 
     const timer = setInterval(() => {
       setProgress(p => {
-        if (p >= 100) {
-          clearInterval(timer);
-          setTimeout(onComplete, 800);
-          return 100;
-        }
-        return p + 4;
+        if (p >= 90) return p;
+        return p + 3;
       });
     }, 100);
 
@@ -372,14 +380,14 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onErr
         if (nextIndex < statuses.length) return statuses[nextIndex];
         return prev;
       });
-    }, 600);
+    }, 900);
 
     return () => {
       cancelled = true;
       clearInterval(timer);
       clearInterval(statusTimer);
     };
-  }, [onComplete, onDiscoverFlows, onDiscovered, websiteUrl]);
+  }, [onComplete, onDiscoverFlows, onDiscovered, onError, websiteUrl]);
 
   return (
     <div className="flex flex-col items-center justify-center py-10 sm:py-20 text-center">
@@ -389,6 +397,11 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onErr
         </div>
         <h2 className="text-[24px] sm:text-[32px] font-light tracking-tight text-[#111] leading-tight">Discovering your website flows</h2>
         <p className="text-[14px] text-[#666] mt-4">We're mapping out your checkout, pricing, and cancellation paths</p>
+        {error && (
+          <p className="text-[13px] text-red-600 mt-4">
+            {error}
+          </p>
+        )}
       </div>
 
       <div className="w-full max-w-md">
@@ -406,7 +419,7 @@ function FlowDiscoveryLoading({ websiteUrl, onDiscoverFlows, onDiscovered, onErr
   );
 }
 
-function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, events, pagesDiscovered, discoveryError, onNext, onBack }: any) {
+function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, events, pagesDiscovered, discoveryError, discoveryDebug, onNext, onBack }: any) {
   const normalizedWebsite = (websiteUrl || '').trim();
   const websiteHost = normalizedWebsite
     ? normalizedWebsite.replace(/^https?:\/\//, '').replace(/\/$/, '')
@@ -434,6 +447,9 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, e
         .filter(Boolean)
     )
   );
+  const zeroFlowDiagnostic = !flows.length && discoveryDebug
+    ? `Firecrawl returned ${discoveryDebug.links_returned ?? 0} links, ${discoveryDebug.same_origin_links ?? 0} same-site links, and ${discoveryDebug.candidate_urls?.length ?? 0} candidate flow URLs${discoveryDebug.fallback_used ? ' after map fallback' : ''}.`
+    : null;
 
   const toggleFlow = (id: string) => {
     if (selectedFlows.includes(id)) {
@@ -477,7 +493,14 @@ function Step2({ selectedFlows, setSelectedFlows, websiteUrl, discoveredFlows, e
           <div className="space-y-3">
             {!flows.length && (
               <div className="p-5 border border-[#f0f0f0] rounded-xl text-[13px] text-[#666] bg-white">
-                No flow-specific pages were returned by Firecrawl. Go back and try another URL, or configure Firecrawl before scanning.
+                <p>No flow-specific pages were returned by Firecrawl.</p>
+                {zeroFlowDiagnostic && (
+                  <p className="mt-2 text-[12px] text-[#888]">{zeroFlowDiagnostic}</p>
+                )}
+                {discoveryDebug?.map_error && (
+                  <p className="mt-2 text-[12px] text-red-600">{discoveryDebug.map_error}</p>
+                )}
+                <p className="mt-2 text-[12px] text-[#888]">Go back and try the canonical homepage URL, or check whether the site blocks crawler access to navigation.</p>
               </div>
             )}
             {flows.map((flow: any) => (

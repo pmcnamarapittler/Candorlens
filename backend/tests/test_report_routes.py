@@ -27,6 +27,12 @@ def test_generate_report_returns_pdf(monkeypatch):
                     "regulation": "ROSCA",
                     "confidence": 0.9,
                     "description": "Missing recurring charge disclosure",
+                    "attack_class": "forced_continuity",
+                    "raw_confidence": 0.92,
+                    "source_url": "https://example.com/pricing",
+                    "flow_id": "pricing",
+                    "flow_step": 0,
+                    "evidence_text": "Start your free trial now.",
                 }
             ],
         },
@@ -34,6 +40,23 @@ def test_generate_report_returns_pdf(monkeypatch):
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/pdf")
+    assert response.content.startswith(b"%PDF")
+
+
+def test_generate_report_allows_empty_findings(monkeypatch):
+    monkeypatch.setattr(report, "generate_pdf_report", lambda payload: b"%PDF-1.4\nmock")
+    client = _build_client()
+
+    response = client.post(
+        "/generate-report",
+        json={
+            "website_url": "https://example.com",
+            "company_name": "Example Inc",
+            "findings": [],
+        },
+    )
+
+    assert response.status_code == 200
     assert response.content.startswith(b"%PDF")
 
 

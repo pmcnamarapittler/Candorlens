@@ -90,6 +90,15 @@ def _generate_pdf_report_reportlab(payload: GenerateReportRequest) -> bytes:
                 step=13,
             )
             line(f"Regulation: {_safe_text(finding.regulation) or 'N/A'}{confidence}", size=9, step=12)
+            if finding.attack_class:
+                line(f"Classifier class: {_safe_text(finding.attack_class)}", size=9, step=12)
+            if finding.raw_confidence is not None:
+                line(f"Raw confidence: {finding.raw_confidence:.3f}", size=9, step=12)
+            if finding.source_url:
+                line(f"Source URL: {_safe_text(finding.source_url)}", size=9, step=12)
+            evidence = finding.evidence_text or finding.extracted_text
+            if evidence:
+                line(f"Evidence: {_safe_text(evidence)}", size=9, step=12)
             if finding.description:
                 line(f"Description: {_safe_text(finding.description)}", size=9, step=12)
             if finding.remediation_guidance:

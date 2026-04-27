@@ -12,7 +12,9 @@ from backend.schemas.language_event import (
     to_language_event,
 )
 from backend.services.bert_classifier import get_classifier
+from backend.services.evidence_gates import should_emit_finding
 from backend.services.legal_mapper import get_legal_mapping
+from backend.services.text_evidence import EvidenceSnippet, extract_evidence_snippets
 
 
 def analyze_text(text: str) -> LanguageEventResponse:
@@ -22,6 +24,8 @@ def analyze_text(text: str) -> LanguageEventResponse:
     """
     classifier = get_classifier()
     attack_class, raw_confidence = classifier.predict(text)
+    if not should_emit_finding(attack_class, raw_confidence, text):
+        raise ValueError("No actionable violation evidence found in the provided text.")
     confidence_enum = classifier.raw_confidence_to_enum(raw_confidence)
     legal = get_legal_mapping(attack_class)
     analyzed = AnalyzedEvent(
@@ -49,21 +53,33 @@ def analyze_flow(
     if not events:
         return [], {"total_events": 0, "summary": {}}
 
-    texts = [e["text"] for e in events]
+    snippets: list[EvidenceSnippet] = []
+    for event in events:
+        snippets.extend(extract_evidence_snippets(event))
+
+    if not snippets:
+        return [], {"total_events": len(events), "total_snippets": 0, "summary": {}}
+
+    texts = [snippet.text for snippet in snippets]
     classifier = get_classifier()
     predictions = classifier.predict_batch(texts)
 
     findings: list[LanguageEventResponse] = []
     base_date = datetime.utcnow()
-    for i, (event_input, (attack_class, raw_confidence)) in enumerate(zip(events, predictions)):
+    for i, (snippet, (attack_class, raw_confidence)) in enumerate(zip(snippets, predictions)):
+        if not should_emit_finding(attack_class, raw_confidence, snippet.text):
+            continue
         legal = get_legal_mapping(attack_class)
         confidence_enum = classifier.raw_confidence_to_enum(raw_confidence)
         analyzed = AnalyzedEvent(
-            text=event_input["text"],
-            flow_id=event_input.get("flow_id", "flow"),
-            flow_step=event_input.get("flow_step", i),
-            url=event_input.get("url"),
-            page_title=event_input.get("page_title"),
+            text=snippet.text,
+            flow_id=snippet.flow_id,
+            flow_step=snippet.flow_step,
+            url=snippet.url,
+            page_title=snippet.page_title,
+            evidence_text=snippet.text,
+            context_text=snippet.context_text,
+            snippet_index=snippet.snippet_index,
             attack_class=attack_class,
             raw_confidence=raw_confidence,
             legal_mapping=legal,
@@ -80,6 +96,8 @@ def analyze_flow(
     flow_context = {
         "flow_id": flow_id,
         "total_events": len(findings),
+        "total_pages": len(events),
+        "total_snippets": len(snippets),
         "summary": summary,
     }
     return findings, flow_context

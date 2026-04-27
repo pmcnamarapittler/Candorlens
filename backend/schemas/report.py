@@ -33,6 +33,13 @@ class ReportFinding(BaseModel):
     description: str = Field(default="", max_length=4000)
     extracted_text: str | None = None
     remediation_guidance: str | None = None
+    attack_class: str | None = None
+    raw_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    source_url: HttpUrl | None = None
+    page_title: str | None = Field(default=None, max_length=240)
+    flow_id: str | None = Field(default=None, max_length=128)
+    flow_step: int | None = Field(default=None, ge=0)
+    evidence_text: str | None = None
 
 
 class GenerateReportRequest(BaseModel):
@@ -41,5 +48,5 @@ class GenerateReportRequest(BaseModel):
     website_url: HttpUrl
     company_name: str = Field(..., min_length=1, max_length=240)
     generated_at: datetime | None = None
-    findings: list[ReportFinding] = Field(..., min_length=1, max_length=500)
+    findings: list[ReportFinding] = Field(default_factory=list, max_length=500)
 

@@ -141,6 +141,9 @@ export default function AuditDetails({
       <div className="flex flex-col lg:flex-row">
         {/* Main Content */}
         <div className="flex-1 px-4 sm:px-10 pb-10">
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
+            This page uses demo audit data and should not be treated as production compliance output.
+          </div>
           {/* Score Section */}
           <div className="py-6 sm:py-9 border-b border-[#f0f0f0]">
             <div className="flex items-baseline">
@@ -151,7 +154,7 @@ export default function AuditDetails({
               Current Compliance Score
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#999] leading-[1.6] sm:leading-[1.7] max-w-[520px] mt-2">
-              Your checkout and subscription flows have significant compliance issues. ROSCA violations detected across 4 of 5 priority findings — immediate remediation recommended.
+              Demo score narrative. Use the Findings and Report tabs for the production-backed scan outputs.
             </p>
             
             <div className="flex gap-[2px] h-1 w-full max-w-[340px] mt-4 rounded-sm overflow-hidden">

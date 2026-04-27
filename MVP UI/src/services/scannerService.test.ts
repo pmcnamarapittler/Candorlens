@@ -1,9 +1,10 @@
-import { analyzeFlow, collectFlow } from './apiClient';
+import { analyzeFlow, analyzeText, collectFlow } from './apiClient';
 import { scannerService } from './scannerService';
 
 vi.mock('./apiClient', () => ({
   collectFlow: vi.fn(),
   analyzeFlow: vi.fn(),
+  analyzeText: vi.fn(),
 }));
 
 describe('scannerService', () => {
@@ -70,6 +71,48 @@ describe('scannerService', () => {
       sourceUrl: 'https://example.com/pricing',
       pageTitle: 'Pricing',
       attackClass: 'false_urgency',
+      extractedText: 'Offer expires soon',
+    });
+  });
+
+  it('routes URL inputs through flow scan and text inputs through /analyze-text', async () => {
+    vi.mocked(collectFlow).mockResolvedValue({
+      events: [],
+      discovered_flows: [],
+      pages_discovered: 0,
+    });
+    vi.mocked(analyzeFlow).mockResolvedValue({
+      findings: [],
+      flow_context: { flow_id: 'root', total_events: 0, summary: {} },
+    });
+    vi.mocked(analyzeText).mockResolvedValue({
+      event_id: 'evt_20260426_001',
+      text: 'Your account will be suspended',
+      attack_class: 'fear_based_threat',
+      confidence: 'HIGH',
+      rationale: 'Use neutral language.',
+      flow_id: 'single',
+      flow_step: 0,
+      raw_confidence: 0.91,
+      evidence_text: 'Your account will be suspended',
+      context_text: null,
+      snippet_index: 0,
+      legal_mapping: {
+        regulations: [{ name: 'FTC Act Section 5', citation: '15 U.S.C. § 45(a)' }],
+        risk_severity: 'high',
+        remediation_guidance: 'Use neutral language.',
+      },
+    });
+
+    await scannerService.scanInput('https://example.com');
+    const textResult = await scannerService.scanInput('Your account will be suspended');
+
+    expect(collectFlow).toHaveBeenCalledWith('https://example.com');
+    expect(analyzeText).toHaveBeenCalledWith('Your account will be suspended');
+    expect(textResult.findings[0]).toMatchObject({
+      attackClass: 'fear_based_threat',
+      rawConfidence: 0.91,
+      evidenceText: 'Your account will be suspended',
     });
   });
 });
