@@ -180,15 +180,17 @@ cp .env.example .env
 ### Run Locally
 
 ```bash
-# Start the API
-cd backend
-uvicorn api.main:app --reload
+# Start the API (from repo root, with venv activated)
+uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # In another terminal, start the dashboard
 cd "MVP UI"
+cp .env.example .env.local   # set VITE_API_BASE_URL / GEMINI_API_KEY as needed
 npm install
 npm run dev
 ```
+
+For a **public deployment** (Azure Container Apps + static UI), see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) section **6**.
 
 ---
 

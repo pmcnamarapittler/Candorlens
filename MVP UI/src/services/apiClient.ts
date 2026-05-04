@@ -1,6 +1,17 @@
-const API_BASE_URL =
-  (globalThis as { __CANDORLENS_API_BASE_URL__?: string }).__CANDORLENS_API_BASE_URL__ ||
-  "http://localhost:8000";
+function resolveApiBaseUrl(): string {
+  const injected = (globalThis as { __CANDORLENS_API_BASE_URL__?: string })
+    .__CANDORLENS_API_BASE_URL__;
+  if (injected?.trim()) {
+    return injected.replace(/\/$/, "");
+  }
+  const fromVite = import.meta.env.VITE_API_BASE_URL;
+  if (fromVite && String(fromVite).trim()) {
+    return String(fromVite).replace(/\/$/, "");
+  }
+  return "http://localhost:8000";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export interface AnalyzeTextResponse {
   event_id: string;

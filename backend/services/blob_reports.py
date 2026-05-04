@@ -1,6 +1,20 @@
 """
 Report storage: save and retrieve reports by URL.
-Supports Azure Blob Storage or local file storage via REPORT_STORAGE_BACKEND.
+
+Local-first: reports are stored on disk under REPORT_STORAGE_PATH (default data/reports).
+Azure Blob is commented out below for frictionless local dev (website + API without Azure).
+
+--- To connect Azure Blob again ---
+1. In Azure Portal: Storage account → Access keys → copy Connection string.
+2. Repo-root .env:
+     REPORT_STORAGE_BACKEND=azure
+     AZURE_STORAGE_CONNECTION_STRING=<paste>
+3. Uncomment the Azure block at the bottom of this file (marked AZURE BLOB BACKEND).
+4. In _get_backend(), change the default from "local" back to "azure" if you want Azure
+   when REPORT_STORAGE_BACKEND is unset; or keep unset and rely on .env only.
+5. Restart the API.
+
+Container /reports is created on first save when Azure code is active (see commented block).
 """
 
 import hashlib
@@ -22,46 +36,24 @@ def _url_to_blob_name(url: str) -> str:
     return f"{key}.json"
 
 
-# --- Azure backend ---
+# --- Azure backend (disabled — see module docstring and file bottom) ---
 
 
 def _get_azure_container():
-    """Connect to Azure Blob Storage and return the 'reports' container client."""
-    from azure.storage.blob import BlobServiceClient
-
-    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    if not connection_string:
-        raise RuntimeError(
-            "AZURE_STORAGE_CONNECTION_STRING is not set. "
-            "Check your .env file or set REPORT_STORAGE_BACKEND=local for local storage."
-        )
-    blob_service = BlobServiceClient.from_connection_string(connection_string)
-    return blob_service.get_container_client("reports")
-
-
-def _save_report_azure(url: str, report_data: dict) -> None:
-    """Save a report to Azure Blob Storage."""
-    container = _get_azure_container()
-    blob_name = _url_to_blob_name(url)
-    json_data = json.dumps(report_data, indent=2)
-    container.upload_blob(
-        name=blob_name,
-        data=json_data,
-        overwrite=True,
-        content_type="application/json",
+    raise RuntimeError(
+        "Azure Blob report storage is disabled in blob_reports.py for local development. "
+        "Follow the steps in the module docstring at the top of this file, uncomment the "
+        "Azure block at the bottom, set REPORT_STORAGE_BACKEND=azure and "
+        "AZURE_STORAGE_CONNECTION_STRING in .env, then restart the API."
     )
 
 
+def _save_report_azure(url: str, report_data: dict) -> None:
+    _get_azure_container()  # raises with instructions
+
+
 def _get_report_azure(url: str) -> dict | None:
-    """Fetch a report from Azure Blob Storage."""
-    container = _get_azure_container()
-    blob_name = _url_to_blob_name(url)
-    try:
-        blob_client = container.get_blob_client(blob_name)
-        data = blob_client.download_blob().readall()
-        return json.loads(data)
-    except Exception:
-        return None
+    _get_azure_container()  # raises with instructions
 
 
 # --- Local backend ---
@@ -106,10 +98,10 @@ def _get_report_local(url: str) -> dict | None:
 
 
 def _get_backend() -> str:
-    """Return 'azure' or 'local' based on REPORT_STORAGE_BACKEND."""
-    backend = os.getenv("REPORT_STORAGE_BACKEND", "azure").lower().strip()
+    """Return 'azure' or 'local' based on REPORT_STORAGE_BACKEND (defaults to local)."""
+    backend = os.getenv("REPORT_STORAGE_BACKEND", "local").lower().strip()
     if backend not in ("azure", "local"):
-        return "azure"
+        return "local"
     return backend
 
 
@@ -132,3 +124,55 @@ def get_report(url: str) -> dict | None:
     if _get_backend() == "local":
         return _get_report_local(url)
     return _get_report_azure(url)
+
+
+# =============================================================================
+# AZURE BLOB BACKEND — paste these implementations back over the stub functions
+# above (_get_azure_container, _save_report_azure, _get_report_azure) when you
+# want Azure again. Then set REPORT_STORAGE_BACKEND=azure in .env.
+#
+# def _get_azure_container():
+#     """Connect to Azure Blob Storage and return the 'reports' container client."""
+#     from azure.core.exceptions import ResourceExistsError
+#     from azure.storage.blob import BlobServiceClient
+#
+#     connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+#     if not connection_string:
+#         raise RuntimeError(
+#             "AZURE_STORAGE_CONNECTION_STRING is not set. "
+#             "Check your .env file or set REPORT_STORAGE_BACKEND=local for local storage."
+#         )
+#     blob_service = BlobServiceClient.from_connection_string(connection_string)
+#     container = blob_service.get_container_client("reports")
+#     if not container.exists():
+#         try:
+#             container.create_container()
+#         except ResourceExistsError:
+#             pass
+#     return container
+#
+#
+# def _save_report_azure(url: str, report_data: dict) -> None:
+#     """Save a report to Azure Blob Storage."""
+#     container = _get_azure_container()
+#     blob_name = _url_to_blob_name(url)
+#     json_data = json.dumps(report_data, indent=2)
+#     container.upload_blob(
+#         name=blob_name,
+#         data=json_data,
+#         overwrite=True,
+#         content_type="application/json",
+#     )
+#
+#
+# def _get_report_azure(url: str) -> dict | None:
+#     """Fetch a report from Azure Blob Storage."""
+#     container = _get_azure_container()
+#     blob_name = _url_to_blob_name(url)
+#     try:
+#         blob_client = container.get_blob_client(blob_name)
+#         data = blob_client.download_blob().readall()
+#         return json.loads(data)
+#     except Exception:
+#         return None
+# =============================================================================
