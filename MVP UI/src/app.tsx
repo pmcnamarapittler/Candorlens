@@ -17,6 +17,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedFinding, setSelectedFinding] = useState<Finding | null>(null);
   const [allFindings, setAllFindings] = useState<Finding[]>([]);
+  const [lastScanPagesDiscovered, setLastScanPagesDiscovered] = useState<number | null>(null);
   const [appError, setAppError] = useState<string | null>(null);
   const [isHydratingFromOnboarding, setIsHydratingFromOnboarding] = useState(false);
   const [isVerificationScanRunning, setIsVerificationScanRunning] = useState(false);
@@ -34,9 +35,20 @@ export default function App() {
     }
   };
 
-  const handleScanComplete = (newFindings: Finding[]) => {
+  const handleScanComplete = (
+    newFindings: Finding[],
+    pagesDiscovered?: number,
+    scannedWebsiteUrl?: string,
+  ) => {
     setAppError(null);
-    setAllFindings(prev => [...newFindings, ...prev]);
+    // Replace list so dashboard rescans do not mix unrelated URLs with prior audits.
+    setAllFindings(newFindings);
+    if (scannedWebsiteUrl) {
+      setOnboardingData((prev: any) => (prev ? { ...prev, websiteUrl: scannedWebsiteUrl } : prev));
+    }
+    if (typeof pagesDiscovered === "number" && Number.isFinite(pagesDiscovered)) {
+      setLastScanPagesDiscovered(Math.max(0, pagesDiscovered));
+    }
     handleTabChange('findings');
   };
 
@@ -79,12 +91,20 @@ export default function App() {
     }
   };
 
-  const handleInitialScanComplete = (data: any, scanResult?: { findings: Finding[] }) => {
+  const handleInitialScanComplete = (
+    data: any,
+    scanResult?: { findings: Finding[]; pagesDiscovered?: number },
+  ) => {
     setOnboardingData(data);
     setIsLoggedIn(true);
     setIsHydratingFromOnboarding(false);
     setAppError(null);
     setAllFindings(scanResult?.findings || []);
+    if (typeof scanResult?.pagesDiscovered === "number") {
+      setLastScanPagesDiscovered(Math.max(0, scanResult.pagesDiscovered));
+    } else if (typeof data?.collectedFlowData?.pagesDiscovered === "number") {
+      setLastScanPagesDiscovered(Math.max(0, data.collectedFlowData.pagesDiscovered));
+    }
     setActiveTab('findings');
   };
 
@@ -181,6 +201,7 @@ export default function App() {
           <DashboardHome
             findings={allFindings}
             onboardingData={onboardingData}
+            lastScanPagesDiscovered={lastScanPagesDiscovered}
             onScanComplete={handleScanComplete}
             onGoToFindings={() => handleTabChange('findings')}
             onDownloadPdf={handleDownloadPdf}
@@ -195,6 +216,7 @@ export default function App() {
             onStatusChange={handleStatusChange}
             onSelectFinding={(finding) => setSelectedFinding(finding)} 
             onboardingData={onboardingData}
+            lastScanPagesDiscovered={lastScanPagesDiscovered}
           />
         );
       case 'remediation':
@@ -232,6 +254,7 @@ export default function App() {
           <DashboardHome
             findings={allFindings}
             onboardingData={onboardingData}
+            lastScanPagesDiscovered={lastScanPagesDiscovered}
             onScanComplete={handleScanComplete}
             onGoToFindings={() => handleTabChange('findings')}
             onDownloadPdf={handleDownloadPdf}

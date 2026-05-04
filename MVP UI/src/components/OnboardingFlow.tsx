@@ -109,10 +109,25 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
             onDiscoverFlows={onDiscoverFlows}
             onDiscovered={(result) => {
               setCollectedFlowData(result);
-              setDiscoveredFlows(result.discoveredFlows || []);
+              const rawFlows = result.discoveredFlows || [];
+              const evts = result.events || [];
+              const hasRootEvent = evts.some((e: { flow_id?: string }) => e.flow_id === 'root');
+              const mergedFlows =
+                hasRootEvent && !rawFlows.some((f: { id: string }) => f.id === 'root')
+                  ? [
+                      {
+                        id: 'root',
+                        title: 'Home',
+                        path: '/',
+                        risk_hint: 'MEDIUM',
+                      },
+                      ...rawFlows,
+                    ]
+                  : rawFlows;
+              setDiscoveredFlows(mergedFlows);
               setPagesDiscovered(result.pagesDiscovered || 0);
               setDiscoveryDebug(result.discoveryDebug || null);
-              const suggested = (result.discoveredFlows || []).slice(0, 5).map((flow) => flow.id);
+              const suggested = mergedFlows.slice(0, 5).map((flow: { id: string }) => flow.id);
               if (suggested.length) {
                 setSelectedFlows(suggested);
               }

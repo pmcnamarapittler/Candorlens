@@ -1,12 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, FileDown, Loader2, Search } from 'lucide-react';
 import { Finding } from '../types';
-import { scannerService } from '../services/scannerService';
+import { pagesCoveredDisplay } from "../lib/auditMetrics";
+import { normalizeInputUrl, scannerService } from '../services/scannerService';
 
 interface DashboardHomeProps {
   findings: Finding[];
-  onScanComplete: (findings: Finding[]) => void;
+  onScanComplete: (
+    findings: Finding[],
+    pagesDiscovered?: number,
+    scannedWebsiteUrl?: string,
+  ) => void;
   onboardingData?: any;
+  lastScanPagesDiscovered?: number | null;
   onGoToFindings: () => void;
   onDownloadPdf: () => void;
   appError?: string | null;
@@ -17,6 +23,7 @@ export default function DashboardHome({
   findings,
   onScanComplete,
   onboardingData,
+  lastScanPagesDiscovered,
   onGoToFindings,
   onDownloadPdf,
   appError,
@@ -30,19 +37,21 @@ export default function DashboardHome({
     const high = findings.filter((f) => f.severity === 'HIGH').length;
     const medium = findings.filter((f) => f.severity === 'MEDIUM').length;
     const low = findings.filter((f) => f.severity === 'LOW').length;
-    const pages = new Set(findings.map((f) => f.page)).size;
+    const pages = pagesCoveredDisplay(findings, onboardingData, lastScanPagesDiscovered);
     return { high, medium, low, pages };
-  }, [findings]);
+  }, [findings, onboardingData, lastScanPagesDiscovered]);
 
   const handleScan = async () => {
-    if (!urlInput) return;
+    if (!urlInput.trim()) return;
 
     setScanError(null);
     onClearError();
     setIsScanning(true);
     try {
-      const results = await scannerService.scanInput(urlInput.trim());
-      onScanComplete(results.findings);
+      const trimmedInput = urlInput.trim();
+      const scannedWebsiteUrl = normalizeInputUrl(trimmedInput) ?? undefined;
+      const results = await scannerService.scanInput(trimmedInput);
+      onScanComplete(results.findings, results.pagesDiscovered, scannedWebsiteUrl);
     } catch (error) {
       console.error('Scan failed:', error);
       setScanError('Scan failed. Verify backend is running and try again.');
@@ -65,16 +74,14 @@ export default function DashboardHome({
         <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={onDownloadPdf}
-            disabled={!findings.length}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-[#f5f5f5] text-[#555] text-[11px] font-medium rounded-md hover:bg-[#eee] transition-all whitespace-nowrap disabled:opacity-50"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-[#f5f5f5] text-[#555] text-[11px] font-medium rounded-md hover:bg-[#eee] transition-all whitespace-nowrap"
           >
             <FileDown size={14} className="mr-2" />
             Download Report
           </button>
           <button
             onClick={onGoToFindings}
-            disabled={!findings.length}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-[#111] text-white text-[11px] font-medium rounded-md hover:bg-[#333] transition-all whitespace-nowrap disabled:opacity-50"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-[#111] text-white text-[11px] font-medium rounded-md hover:bg-[#333] transition-all whitespace-nowrap"
           >
             View Findings
           </button>
@@ -96,13 +103,21 @@ export default function DashboardHome({
               type="text"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (!isScanning) {
+                    void handleScan();
+                  }
+                }
+              }}
               placeholder="Enter website URL or text to analyze"
               className="w-full bg-transparent border-none py-3 sm:py-4 pl-11 pr-4 text-sm focus:outline-none"
             />
           </div>
           <button
             onClick={handleScan}
-            disabled={isScanning || !urlInput}
+            disabled={isScanning || !urlInput.trim()}
             className="bg-[#111] text-white px-6 sm:px-8 py-3 sm:py-4 font-medium text-xs uppercase tracking-widest hover:bg-neutral-800 transition-colors whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
           >
             {isScanning ? (

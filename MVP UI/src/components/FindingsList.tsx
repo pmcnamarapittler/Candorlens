@@ -12,6 +12,13 @@ import {
 import { Finding, AuditSummary } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  computeComplianceScore,
+  pagesCoveredDisplay,
+  pagesDiscoveredFromOnboarding,
+  scoreCaption,
+  scoreTextClass,
+} from "../lib/auditMetrics";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -29,16 +36,25 @@ interface FindingsListProps {
   onStatusChange: (id: string, status: Finding['status']) => void;
   onSelectFinding: (finding: Finding) => void;
   onboardingData?: any;
+  lastScanPagesDiscovered?: number | null;
 }
 
-export default function FindingsList({ findings, onStatusChange, onSelectFinding, onboardingData }: FindingsListProps) {
+export default function FindingsList({
+  findings,
+  onStatusChange,
+  onSelectFinding,
+  onboardingData,
+  lastScanPagesDiscovered,
+}: FindingsListProps) {
   const [filter, setFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
   const [flowFilter, setFlowFilter] = useState('All Flows');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const displayUrl = onboardingData?.websiteUrl || DEFAULT_SUMMARY.website;
-  const pagesScanned = new Set(findings.map((f) => f.page)).size;
-  const score = Math.max(0, 100 - findings.length * 10);
+  const pagesFromCrawl = pagesDiscoveredFromOnboarding(onboardingData, lastScanPagesDiscovered);
+  const pagesScanned = pagesCoveredDisplay(findings, onboardingData, lastScanPagesDiscovered);
+  const score = computeComplianceScore(findings, pagesFromCrawl);
+  const captionText = scoreCaption(score, findings, pagesFromCrawl);
 
   const availableFlows = ['All Flows', ...Array.from(new Set(findings.map((finding) => finding.flow).filter(Boolean))).sort()];
 
@@ -98,9 +114,19 @@ export default function FindingsList({ findings, onStatusChange, onSelectFinding
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="text-[28px] font-light text-[#dc2626] leading-none">{score}</p>
+          <div className="text-right max-w-[140px]">
+            <p
+              className={cn(
+                "text-[28px] font-light leading-none tabular-nums",
+                scoreTextClass(score),
+              )}
+            >
+              {score === null ? "—" : score}
+            </p>
             <p className="text-[9px] uppercase tracking-widest text-[#bbb] font-medium mt-1">Score</p>
+            <p className="text-[10px] text-[#aaa] font-normal normal-case tracking-normal mt-1 leading-snug">
+              {captionText}
+            </p>
           </div>
         </div>
 

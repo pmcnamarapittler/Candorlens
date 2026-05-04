@@ -49,7 +49,7 @@ describe('DashboardHome', () => {
 
     await waitFor(() => {
       expect(scannerService.scanInput).toHaveBeenCalledWith('Start your free trial');
-      expect(onScanComplete).toHaveBeenCalledWith(findings);
+      expect(onScanComplete).toHaveBeenCalledWith(findings, 1);
     });
   });
 });

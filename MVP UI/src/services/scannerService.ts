@@ -83,6 +83,17 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+export function normalizeInputUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (isHttpUrl(trimmed)) return trimmed;
+  // Treat host-like values as websites (e.g. "example.com").
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return null;
+}
+
 function confidenceToPercent(
   confidence: LanguageEventResponse["confidence"],
   rawConfidence?: number | null,
@@ -166,8 +177,9 @@ export const scannerService = {
   },
 
   scanInput: async (input: string): Promise<ScanResult> => {
-    if (isHttpUrl(input)) {
-      return scannerService.scanUrl(input);
+    const normalizedUrl = normalizeInputUrl(input);
+    if (normalizedUrl) {
+      return scannerService.scanUrl(normalizedUrl);
     }
     return scannerService.scanText(input);
   },

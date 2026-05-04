@@ -22,6 +22,14 @@ FIRECRAWL_BASE_URL = os.getenv("FIRECRAWL_BASE_URL", "https://api.firecrawl.dev/
 FIRECRAWL_REQUEST_TIMEOUT = 90.0
 FIRECRAWL_SCRAPE_TIMEOUT_MS = 30000
 MIN_LINKS_BEFORE_MAP_FALLBACK = 3
+# If true, Firecrawl strips nav/secondary content — good for noise, bad for sparse SPAs.
+# Set FIRECRAWL_ONLY_MAIN_CONTENT=false in .env when many sites return almost empty markdown.
+MIN_MARKDOWN_CHARS_FOR_FULL_PAGE_RETRY = 200
+
+
+def _only_main_content_default_true() -> bool:
+    v = (os.getenv("FIRECRAWL_ONLY_MAIN_CONTENT") or "true").lower().strip()
+    return v not in ("0", "false", "no", "off")
 
 FLOW_KEYWORDS = (
     "product",
@@ -70,12 +78,46 @@ FLOW_KEYWORDS = (
     "order",
     "payment",
     "premium",
+    "family",
+    "student",
+    "individual",
     "purchase",
 )
 
-HIGH_RISK_KEYWORDS = ("checkout", "cancel", "pricing", "purchase", "buy", "billing", "subscribe")
+# High-risk paths get the largest score boost in candidate selection because
+# they are the most likely to contain dark-pattern language (forced
+# continuity, hidden cancellation, etc).
+HIGH_RISK_KEYWORDS = (
+    "checkout",
+    "cancel",
+    "pricing",
+    "purchase",
+    "buy",
+    "billing",
+    "subscribe",
+    "premium",
+    "plans",
+    "trial",
+    "signup",
+    "upgrade",
+)
 MEDIUM_RISK_KEYWORDS = ("api", "integrations", "demo", "contact-sales", "signup", "trial")
 TOP_LEVEL_FLOW_PATHS = {
+    "pricing",
+    "premium",
+    "plans",
+    "checkout",
+    "subscribe",
+    "trial",
+    "signup",
+    "sign-up",
+    "upgrade",
+    "billing",
+    "purchase",
+    "buy",
+    "cancel",
+    "family",
+    "student",
     "products",
     "industries",
     "industry",
@@ -83,7 +125,6 @@ TOP_LEVEL_FLOW_PATHS = {
     "customer",
     "events",
     "learning",
-    "pricing",
     "login",
     "contact",
     "contact-us",
@@ -98,29 +139,76 @@ TOP_LEVEL_FLOW_PATHS = {
     "integrations",
     "chrome",
 }
+# Lower number = higher priority (sorted ascending). Subscription/billing
+# flows are highest because that's where forced-continuity violations live.
 TOP_LEVEL_FLOW_PRIORITY = {
-    "products": 0,
-    "industries": 1,
-    "industry": 1,
-    "customers": 2,
-    "customer": 2,
-    "events": 3,
-    "learning": 4,
-    "pricing": 5,
-    "sales": 6,
-    "service": 7,
-    "commerce": 8,
-    "marketing": 9,
-    "platform": 10,
-    "solutions": 11,
-    "small-business": 12,
-    "api": 13,
-    "integrations": 14,
-    "chrome": 15,
-    "login": 16,
-    "contact": 17,
-    "contact-us": 17,
+    "pricing": 0,
+    "premium": 0,
+    "plans": 0,
+    "checkout": 1,
+    "subscribe": 1,
+    "trial": 1,
+    "signup": 2,
+    "sign-up": 2,
+    "upgrade": 2,
+    "billing": 2,
+    "purchase": 2,
+    "buy": 2,
+    "cancel": 2,
+    "family": 3,
+    "student": 3,
+    "products": 4,
+    "industries": 5,
+    "industry": 5,
+    "customers": 6,
+    "customer": 6,
+    "events": 7,
+    "learning": 8,
+    "sales": 9,
+    "service": 10,
+    "commerce": 11,
+    "marketing": 12,
+    "platform": 13,
+    "solutions": 14,
+    "small-business": 15,
+    "api": 16,
+    "integrations": 17,
+    "chrome": 18,
+    "login": 19,
+    "contact": 20,
+    "contact-us": 20,
 }
+
+# Common commerce / subscription paths to attempt on every site, even if the
+# homepage doesn't link to them. Many SPAs (Spotify, etc.) redirect their root
+# to a player or login that hides the marketing pages — probing these paths
+# directly recovers the dark-pattern surface.
+PROBE_PATH_SUFFIXES = (
+    "/pricing",
+    "/plans",
+    "/premium",
+    "/subscribe",
+    "/upgrade",
+    "/signup",
+    "/sign-up",
+    "/checkout",
+    "/cancel",
+    "/family",
+    "/student",
+    "/trial",
+    "/free-trial",
+    "/buy",
+    "/account/billing",
+    "/account/cancel",
+    # Locale-prefixed variants for sites that use /us/, /en/, etc.
+    "/us/premium",
+    "/us/family",
+    "/us/student",
+    "/us/pricing",
+    "/us/plans",
+    "/en-us/pricing",
+    "/en/pricing",
+)
 LOW_VALUE_PATH_KEYWORDS = (
     "blog",
     "news",
@@ -237,10 +325,12 @@ def _candidate_score(path: str) -> int:
     lower = path.strip("/").lower()
     if not lower:
         return -100
+    # Subscription/billing keywords always rank highest, even when nested
+    # under a locale path (e.g. /us/premium, /en-us/pricing).
+    if any(keyword in lower for keyword in HIGH_RISK_KEYWORDS):
+        return 145 if "/" not in lower else 120
     if lower in TOP_LEVEL_FLOW_PATHS:
         return 140
-    if any(keyword in lower for keyword in HIGH_RISK_KEYWORDS):
-        return 130 if "/" not in lower else 95
     if any(keyword in lower for keyword in FLOW_KEYWORDS):
         return 90 if "/" not in lower else 70
     if any(keyword in lower for keyword in LOW_VALUE_PATH_KEYWORDS):
@@ -254,7 +344,11 @@ def _candidate_priority(path: str) -> int:
     lower = path.strip("/").lower()
     if lower in TOP_LEVEL_FLOW_PRIORITY:
         return TOP_LEVEL_FLOW_PRIORITY[lower]
-    for keyword, priority in TOP_LEVEL_FLOW_PRIORITY.items():
+    # Iterate from highest priority (lowest number) to lowest so the
+    # most-relevant keyword wins when several are substrings of the path.
+    for keyword, priority in sorted(
+        TOP_LEVEL_FLOW_PRIORITY.items(), key=lambda kv: kv[1]
+    ):
         if keyword in lower:
             return priority
     return 100
@@ -336,6 +430,81 @@ def _risk_hint_from_flow_id(flow_id: str) -> str:
     return "LOW"
 
 
+def _canonical_url(url: str) -> str:
+    """Lowercase host + trim trailing slash so probe-vs-discovered dedupe is
+    stable across (`https://x.com/foo`, `https://X.com/foo/`)."""
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    netloc = host
+    if parsed.port:
+        netloc = f"{host}:{parsed.port}"
+    path = parsed.path or "/"
+    if len(path) > 1:
+        path = path.rstrip("/")
+    return f"{parsed.scheme}://{netloc}{path}"
+
+
+def _build_probe_urls(website_url: str, resolved_url: str) -> list[str]:
+    """Generate well-known commerce paths to attempt on every site.
+
+    Many SPAs (Spotify, etc.) redirect their homepage to a player or login
+    that hides marketing copy. Probing predictable paths recovers the
+    dark-pattern surface even when the homepage links don't expose them.
+    Probes both the user-supplied origin and the resolved origin so a
+    `www.spotify.com → open.spotify.com` redirect doesn't lose the
+    marketing host.
+    """
+    origins: list[str] = []
+    seen_origins: set[str] = set()
+    for raw_url in (website_url, resolved_url):
+        if not raw_url:
+            continue
+        parsed = urlparse(raw_url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            continue
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        if origin not in seen_origins:
+            seen_origins.add(origin)
+            origins.append(origin)
+
+    probes: list[str] = []
+    seen: set[str] = set()
+    for origin in origins:
+        for suffix in PROBE_PATH_SUFFIXES:
+            candidate = f"{origin}{suffix}"
+            canonical = _canonical_url(candidate)
+            if canonical and canonical not in seen:
+                seen.add(canonical)
+                probes.append(candidate)
+    return probes
+
+
+def _scrape_with_retry(
+    client: httpx.Client,
+    url: str,
+    *,
+    with_links: bool = False,
+) -> tuple[str, str, str, list]:
+    """Scrape `url`, falling back to onlyMainContent=false if the first pass
+    returns thin content. Returns (resolved_url, title, markdown, links)."""
+    use_main = _only_main_content_default_true()
+    resolved_url, title, markdown, links = _firecrawl_scrape(
+        client, url, with_links=with_links, only_main_content=use_main
+    )
+    if use_main and len((markdown or "").strip()) < MIN_MARKDOWN_CHARS_FOR_FULL_PAGE_RETRY:
+        try:
+            ru, rt, md, lk = _firecrawl_scrape(
+                client, url, with_links=with_links, only_main_content=False
+            )
+            if len((md or "").strip()) > len((markdown or "").strip()):
+                return ru, rt, md, lk
+        except (httpx.HTTPError, RuntimeError):
+            pass
+    return resolved_url, title, markdown, links
+
+
 def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
     """
     Collect website-specific flow steps via Firecrawl and convert to the
@@ -349,20 +518,22 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
 
     with _firecrawl_client(api_key) as client:
         try:
-            resolved_url, root_title, root_markdown, root_links = _firecrawl_scrape(
-                client, website_url, with_links=True, only_main_content=True
+            resolved_url, root_title, root_markdown, root_links = _scrape_with_retry(
+                client, website_url, with_links=True
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(f"Firecrawl could not load {website_url}: {exc}") from exc
 
         root_links = [*root_links, *_extract_markdown_links(root_markdown)]
-        discovery_debug = {
+        discovery_debug: dict = {
             "root_url": website_url,
             "resolved_url": resolved_url,
             "links_returned": len(root_links),
             "same_origin_links": 0,
             "candidate_urls": [],
             "fallback_used": False,
+            "probe_paths_used": False,
+            "duplicates_skipped": 0,
             "skipped_reason_counts": {},
         }
 
@@ -377,6 +548,12 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
         ]
         discovered_flows: list[dict] = []
         flow_step_counters: dict[str, int] = {"root": 0}
+        # Track resolved canonical URLs we already have content for so that
+        # multiple discovery sources (links → map fallback → probes) and
+        # post-redirect collisions (intl-ar → open.spotify.com) don't all
+        # end up as duplicate events.
+        seen_resolved: set[str] = {_canonical_url(resolved_url)}
+        duplicates_skipped = 0
 
         candidates, selection_debug = _select_candidate_urls_with_debug(
             resolved_url, root_links, max_steps - 1
@@ -399,14 +576,45 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
             except RuntimeError:
                 discovery_debug["map_error"] = "Firecrawl map fallback failed"
 
+        # Always add high-value commerce probes after link-based discovery.
+        # They're appended (not prepended) so the link-based candidates keep
+        # priority, but they fill empty slots and recover marketing pages
+        # whose paths are predictable but not linked from the rendered
+        # homepage (Spotify Premium, /pricing, /checkout, etc.).
+        probe_urls = _build_probe_urls(website_url, resolved_url)
+        if probe_urls:
+            existing = {_canonical_url(c) for c in candidates}
+            existing.update(seen_resolved)
+            for probe in probe_urls:
+                key = _canonical_url(probe)
+                if key and key not in existing:
+                    candidates.append(probe)
+                    existing.add(key)
+            discovery_debug["probe_paths_used"] = True
+
         for candidate_url in candidates:
+            if len(events) - 1 >= max_steps - 1:
+                break
             try:
-                page_url, page_title, page_markdown, _ = _firecrawl_scrape(
+                page_url, page_title, page_markdown, _ = _scrape_with_retry(
                     client, candidate_url, with_links=False
                 )
             except httpx.HTTPError:
                 continue
             except RuntimeError:
+                continue
+
+            resolved_key = _canonical_url(page_url or candidate_url)
+            if resolved_key in seen_resolved:
+                # Skip pages that, after following redirects, point at a URL
+                # we've already scraped (e.g. Spotify intl-* → player).
+                duplicates_skipped += 1
+                continue
+            seen_resolved.add(resolved_key)
+
+            # Skip thin pages — usually a 404, captcha, or bot wall — so we
+            # don't pad the audit with empty content that drags scoring noise.
+            if len((page_markdown or "").strip()) < MIN_MARKDOWN_CHARS_FOR_FULL_PAGE_RETRY:
                 continue
 
             flow_id = _flow_id_from_url(candidate_url)
@@ -430,6 +638,8 @@ def collect_flow_events(website_url: str, max_steps: int = 8) -> dict:
                     "risk_hint": _risk_hint_from_flow_id(flow_id),
                 }
             )
+
+        discovery_debug["duplicates_skipped"] = duplicates_skipped
 
     return {
         "events": events,

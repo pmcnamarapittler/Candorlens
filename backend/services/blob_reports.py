@@ -1,6 +1,9 @@
 """
 Report storage: save and retrieve reports by URL.
-Supports Azure Blob Storage or local file storage via REPORT_STORAGE_BACKEND.
+
+Default is **local disk** (`REPORT_STORAGE_BACKEND=local`) so the API runs without Azure.
+When you link Azure Blob, set `REPORT_STORAGE_BACKEND=azure` and `AZURE_STORAGE_CONNECTION_STRING`
+in repo-root `.env` (see `.env.example`). The `reports` container is created on first save if missing.
 """
 
 import hashlib
@@ -27,6 +30,7 @@ def _url_to_blob_name(url: str) -> str:
 
 def _get_azure_container():
     """Connect to Azure Blob Storage and return the 'reports' container client."""
+    from azure.core.exceptions import ResourceExistsError
     from azure.storage.blob import BlobServiceClient
 
     connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -36,7 +40,13 @@ def _get_azure_container():
             "Check your .env file or set REPORT_STORAGE_BACKEND=local for local storage."
         )
     blob_service = BlobServiceClient.from_connection_string(connection_string)
-    return blob_service.get_container_client("reports")
+    container = blob_service.get_container_client("reports")
+    if not container.exists():
+        try:
+            container.create_container()
+        except ResourceExistsError:
+            pass
+    return container
 
 
 def _save_report_azure(url: str, report_data: dict) -> None:
@@ -106,10 +116,10 @@ def _get_report_local(url: str) -> dict | None:
 
 
 def _get_backend() -> str:
-    """Return 'azure' or 'local' based on REPORT_STORAGE_BACKEND."""
-    backend = os.getenv("REPORT_STORAGE_BACKEND", "azure").lower().strip()
+    """Return 'azure' or 'local' based on REPORT_STORAGE_BACKEND (defaults to local)."""
+    backend = os.getenv("REPORT_STORAGE_BACKEND", "local").lower().strip()
     if backend not in ("azure", "local"):
-        return "azure"
+        return "local"
     return backend
 
 

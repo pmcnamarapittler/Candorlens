@@ -37,23 +37,27 @@ class FakeFirecrawlClient:
                     },
                 }
             )
-        if endpoint == "/scrape" and json["url"].endswith("/products/"):
+        scrape_url = json.get("url", "") if endpoint == "/scrape" else ""
+        if endpoint == "/scrape" and scrape_url.rstrip("/").endswith("/products"):
             return FakeFirecrawlResponse(
                 {
                     "success": True,
                     "data": {
-                        "metadata": {"url": json["url"], "title": "Products"},
-                        "markdown": "Products page",
+                        "metadata": {"url": scrape_url, "title": "Products"},
+                        # Long enough to clear MIN_MARKDOWN_CHARS_FOR_FULL_PAGE_RETRY
+                        # so collect_flow_events keeps the event (real scrapes
+                        # always return >200 chars).
+                        "markdown": "Products page. " + ("Lorem ipsum dolor sit amet. " * 20),
                     },
                 }
             )
-        if endpoint == "/scrape" and json["url"].endswith("/industries/"):
+        if endpoint == "/scrape" and scrape_url.rstrip("/").endswith("/industries"):
             return FakeFirecrawlResponse(
                 {
                     "success": True,
                     "data": {
-                        "metadata": {"url": json["url"], "title": "Industries"},
-                        "markdown": "Industries page",
+                        "metadata": {"url": scrape_url, "title": "Industries"},
+                        "markdown": "Industries page. " + ("Lorem ipsum dolor sit amet. " * 20),
                     },
                 }
             )
@@ -62,7 +66,9 @@ class FakeFirecrawlClient:
                 "success": True,
                 "data": {
                     "metadata": {"url": "https://www.salesforce.com/", "title": "Salesforce"},
-                    "markdown": "Home",
+                    # Real homepages return rich markdown; mirror that so the
+                    # root event isn't filtered by the thin-page guard.
+                    "markdown": "Home. " + ("Welcome to Salesforce. " * 30),
                     "links": [],
                 },
             }
