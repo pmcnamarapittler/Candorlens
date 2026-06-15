@@ -1,9 +1,12 @@
 """
-Analyze endpoints: POST /analyze-text and POST /analyze-flow.
+Analyze endpoints: POST /analyze-text, POST /analyze-flow, POST /analyze-images.
 Returns Language Event Schema-shaped responses with legal mapping.
 """
 
-from fastapi import APIRouter, HTTPException
+import io
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from PIL import Image
 from pydantic import BaseModel, Field, HttpUrl
 
 from backend.schemas.language_event import LanguageEventResponse
@@ -95,6 +98,50 @@ async def api_analyze_flow(body: AnalyzeFlowRequest) -> AnalyzeFlowResponse:
         raise HTTPException(status_code=503, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post(
+    "/analyze-images",
+    response_model=AnalyzeFlowResponse,
+    responses={400: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+)
+async def api_analyze_images(files: list[UploadFile] = File(...)) -> AnalyzeFlowResponse:
+    """
+    Accept image uploads, OCR each one with pytesseract, then BERT-classify the extracted text.
+    """
+    import pytesseract
+
+    events = []
+    for i, file in enumerate(files):
+        contents = await file.read()
+        try:
+            img = Image.open(io.BytesIO(contents))
+            text = pytesseract.image_to_string(img).strip()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Could not read image '{file.filename}': {exc}")
+        if text:
+            events.append({
+                "text": text,
+                "flow_id": "screenshot",
+                "flow_step": i,
+                "url": None,
+                "page_title": file.filename or f"Screenshot {i + 1}",
+            })
+
+    if not events:
+        raise HTTPException(
+            status_code=400,
+            detail="No text could be extracted from the uploaded images. Ensure screenshots contain readable text.",
+        )
+
+    try:
+        findings, flow_context = analyze_flow(events)
+    except (FileNotFoundError, ModelArtifactError) as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return AnalyzeFlowResponse(findings=findings, flow_context=flow_context)
 
 
 @router.post(

@@ -1,5 +1,5 @@
 import { Finding } from "../types";
-import { analyzeFlow, analyzeText, collectFlow } from "./apiClient";
+import { analyzeFlow, analyzeImages, analyzeText, collectFlow } from "./apiClient";
 
 interface LanguageEventResponse {
   event_id: string;
@@ -173,6 +173,15 @@ export const scannerService = {
       findings: [finding],
       discoveredFlows: [],
       pagesDiscovered: 1,
+    };
+  },
+
+  scanImages: async (files: File[]): Promise<ScanResult> => {
+    const analyzed = await analyzeImages(files);
+    return {
+      findings: analyzed.findings.map(mapToFinding),
+      discoveredFlows: [],
+      pagesDiscovered: files.length,
     };
   },
 

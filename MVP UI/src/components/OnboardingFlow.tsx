@@ -28,6 +28,7 @@ interface OnboardingFlowProps {
   onComplete: (data: any, scanResult?: ScanResult) => void;
   onDiscoverFlows?: (websiteUrl: string) => Promise<CollectedFlowData>;
   onScan?: (collected: CollectedFlowData, selectedFlowIds?: string[]) => Promise<ScanResult>;
+  onScanImages?: (files: File[]) => Promise<ScanResult>;
 }
 
 function ShutterIcon({ className, size = 24 }: { className?: string, size?: number }) {
@@ -72,14 +73,11 @@ function LineLogo() {
   );
 }
 
-export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: OnboardingFlowProps) {
-  const [step, setStep] = useState(1);
+export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan, onScanImages }: OnboardingFlowProps) {
+  const [step, setStep] = useState<number | 'photo_scan'>(1);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    companyName: '',
     websiteUrl: '',
-    workEmail: ''
   });
 
   const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
@@ -96,10 +94,25 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
     switch (step) {
       case 1:
         return (
-          <Step1 
-            formData={formData} 
-            setFormData={setFormData} 
-            onNext={() => setStep(1.5)} 
+          <Step1
+            formData={formData}
+            setFormData={setFormData}
+            onNext={() => setStep(1.5)}
+            onScanPhotos={(files: File[]) => {
+              setPhotoFiles(files);
+              setStep('photo_scan');
+            }}
+          />
+        );
+      case 'photo_scan':
+        return (
+          <PhotoScanLoading
+            files={photoFiles}
+            onScanImages={onScanImages}
+            onComplete={(result: ScanResult) =>
+              onComplete({ websiteUrl: 'Screenshot Analysis', selectedFlows: [], collectedFlowData: null }, result)
+            }
+            onBack={() => setStep(1)}
           />
         );
       case 1.5:
@@ -190,154 +203,211 @@ export default function OnboardingFlow({ onComplete, onDiscoverFlows, onScan }: 
   );
 }
 
-function Step1({ formData, setFormData, onNext }: any) {
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function Step1({ formData, setFormData, onNext, onScanPhotos }: any) {
+  const [mode, setMode] = useState<'url' | 'photos'>('url');
+  const [files, setFiles] = useState<File[]>([]);
+  const [urlError, setUrlError] = useState('');
 
-  const validate = () => {
-    const nextErrors: Record<string, string> = {};
-    if (!formData.firstName.trim()) nextErrors.firstName = 'First name is required.';
-    if (!formData.lastName.trim()) nextErrors.lastName = 'Last name is required.';
-    if (!formData.companyName.trim()) nextErrors.companyName = 'Company name is required.';
-    if (!formData.websiteUrl.trim()) {
-      nextErrors.websiteUrl = 'Website URL is required.';
-    } else {
-      try {
-        const parsed = new URL(formData.websiteUrl);
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
-          nextErrors.websiteUrl = 'Website URL must start with http:// or https://.';
-        }
-      } catch {
-        nextErrors.websiteUrl = 'Enter a valid website URL, including https://.';
+  const handleUrlSubmit = () => {
+    const raw = formData.websiteUrl.trim();
+    if (!raw) { setUrlError('Website URL is required.'); return; }
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const parsed = new URL(withProtocol);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        setUrlError('URL must start with http:// or https://');
+        return;
       }
+    } catch {
+      setUrlError('Enter a valid website URL.');
+      return;
     }
-    if (!formData.workEmail.trim()) {
-      nextErrors.workEmail = 'Work email is required.';
-    } else if (!emailPattern.test(formData.workEmail)) {
-      nextErrors.workEmail = 'Enter a valid work email address.';
-    }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setUrlError('');
+    if (formData.websiteUrl !== withProtocol) setFormData({ ...formData, websiteUrl: withProtocol });
+    onNext();
   };
 
-  const handleSubmit = () => {
-    if (validate()) onNext();
+  const addFiles = (incoming: FileList | null) => {
+    if (!incoming) return;
+    const imgs = Array.from(incoming).filter(f => f.type.startsWith('image/'));
+    setFiles(prev => [...prev, ...imgs]);
   };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen">
-      {/* Left Side: Form */}
       <div className="flex-1 p-8 lg:p-16 xl:p-24 flex flex-col">
-        <div className="mb-16">
-          <Logo />
-        </div>
+        <div className="mb-16"><Logo /></div>
 
         <div className="max-w-xl w-full mx-auto lg:mx-0 space-y-12">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#888] mb-6">Step 1 of 3</p>
-            <h2 className="text-[42px] xl:text-[48px] font-light tracking-tight text-[#111] leading-tight mb-4">Let's get started</h2>
-            <p className="text-[14px] text-[#666] leading-relaxed">Enter your details and we'll scan your website for potential compliance violations.</p>
+            <h2 className="text-[42px] xl:text-[48px] font-light tracking-tight text-[#111] leading-tight mb-4">Detect dark patterns</h2>
+            <p className="text-[14px] text-[#666] leading-relaxed">Scan a website or upload screenshots to find compliance violations.</p>
           </div>
 
-          <div className="space-y-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-10">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">First Name</label>
-                <input 
-                  type="text" 
-                  value={formData.firstName}
-                  placeholder="Jane"
-                  onChange={e => {
-                    setFormData({...formData, firstName: e.target.value});
-                    setErrors(({ firstName, ...rest }) => rest);
-                  }}
-                  className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
-                />
-                {errors.firstName && <p className="text-[10px] text-red-600">{errors.firstName}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Last Name</label>
-                <input 
-                  type="text" 
-                  value={formData.lastName}
-                  placeholder="Smith"
-                  onChange={e => {
-                    setFormData({...formData, lastName: e.target.value});
-                    setErrors(({ lastName, ...rest }) => rest);
-                  }}
-                  className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
-                />
-                {errors.lastName && <p className="text-[10px] text-red-600">{errors.lastName}</p>}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Company Name</label>
-              <input 
-                type="text" 
-                value={formData.companyName}
-                placeholder="Acme SaaS, Inc."
-                onChange={e => {
-                  setFormData({...formData, companyName: e.target.value});
-                  setErrors(({ companyName, ...rest }) => rest);
-                }}
-                className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
-              />
-              {errors.companyName && <p className="text-[10px] text-red-600">{errors.companyName}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Website URL</label>
-              <input 
-                type="text" 
-                value={formData.websiteUrl}
-                placeholder="https://example.com"
-                onChange={e => {
-                  setFormData({...formData, websiteUrl: e.target.value});
-                  setErrors(({ websiteUrl, ...rest }) => rest);
-                }}
-                className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
-              />
-              <p className="text-[10px] text-[#aaa]">We'll analyze your checkout, pricing, and cancellation flows</p>
-              {errors.websiteUrl && <p className="text-[10px] text-red-600">{errors.websiteUrl}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Work Email</label>
-              <input 
-                type="email" 
-                value={formData.workEmail}
-                placeholder="jane@company.com"
-                onChange={e => {
-                  setFormData({...formData, workEmail: e.target.value});
-                  setErrors(({ workEmail, ...rest }) => rest);
-                }}
-                className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
-              />
-              {errors.workEmail && <p className="text-[10px] text-red-600">{errors.workEmail}</p>}
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <button 
-              onClick={handleSubmit}
-              className="bg-[#111] text-white rounded-lg px-10 py-3.5 text-[13px] font-medium hover:bg-[#333] transition-colors"
+          {/* Mode toggle */}
+          <div className="flex gap-1 p-1 bg-[#f5f5f5] rounded-lg w-fit">
+            <button
+              onClick={() => setMode('url')}
+              className={cn(
+                "px-5 py-2 text-[12px] font-medium rounded-md transition-all",
+                mode === 'url' ? "bg-white text-[#111] shadow-sm" : "text-[#888] hover:text-[#111]"
+              )}
             >
-              Scan My Website
+              Website URL
+            </button>
+            <button
+              onClick={() => setMode('photos')}
+              className={cn(
+                "px-5 py-2 text-[12px] font-medium rounded-md transition-all",
+                mode === 'photos' ? "bg-white text-[#111] shadow-sm" : "text-[#888] hover:text-[#111]"
+              )}
+            >
+              Upload Screenshots
             </button>
           </div>
+
+          {mode === 'url' ? (
+            <div className="space-y-6">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Website URL</label>
+                <input
+                  type="text"
+                  value={formData.websiteUrl}
+                  placeholder="https://example.com"
+                  onChange={e => { setFormData({ ...formData, websiteUrl: e.target.value }); setUrlError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleUrlSubmit()}
+                  className="w-full border-b border-[#eee] py-2 text-[16px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
+                />
+                <p className="text-[10px] text-[#aaa]">We'll analyze your checkout, pricing, and cancellation flows</p>
+                {urlError && <p className="text-[10px] text-red-600">{urlError}</p>}
+              </div>
+              <button
+                onClick={handleUrlSubmit}
+                className="bg-[#111] text-white rounded-lg px-10 py-3.5 text-[13px] font-medium hover:bg-[#333] transition-colors"
+              >
+                Scan Website
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-medium text-[#888] uppercase tracking-[0.1em]">Screenshots</label>
+                <div
+                  className="border-2 border-dashed border-[#e0e0e0] rounded-xl p-10 text-center cursor-pointer hover:border-[#bbb] transition-colors"
+                  onClick={() => document.getElementById('photo-upload')?.click()}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+                >
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => addFiles(e.target.files)}
+                  />
+                  {files.length ? (
+                    <div className="space-y-2 text-left">
+                      {files.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between text-[13px] text-[#111]">
+                          <span className="truncate max-w-[calc(100%-2rem)]">{f.name}</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); setFiles(files.filter((_, j) => j !== i)); }}
+                            className="text-[#bbb] hover:text-[#111] ml-4 shrink-0"
+                          >×</button>
+                        </div>
+                      ))}
+                      <p className="text-[11px] text-[#aaa] mt-4 text-center">Click or drop to add more</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[14px] text-[#888]">Drop screenshots here or click to browse</p>
+                      <p className="text-[11px] text-[#bbb] mt-2">PNG, JPG, WEBP accepted</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => files.length && onScanPhotos(files)}
+                disabled={!files.length}
+                className="bg-[#111] text-white rounded-lg px-10 py-3.5 text-[13px] font-medium hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Analyze Screenshots
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Right Side: Image Overlay */}
       <div className="hidden lg:block lg:w-[45%] xl:w-[50%] p-6">
         <div className="relative h-full w-full rounded-[32px] overflow-hidden bg-[#222]">
-          <img 
-            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2070" 
-            alt="Mountains" 
+          <img
+            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2070"
+            alt=""
             className="absolute inset-0 w-full h-full object-cover grayscale opacity-40"
             referrerPolicy="no-referrer"
           />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoScanLoading({ files, onScanImages, onComplete, onBack }: any) {
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('Extracting text from screenshots...');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!onScanImages) { setError('Image scanning not configured.'); return; }
+      try {
+        setProgress(30);
+        setStatus(`Analyzing ${files.length} screenshot${files.length > 1 ? 's' : ''} with BERT...`);
+        const result = await onScanImages(files);
+        if (cancelled) return;
+        setProgress(100);
+        setStatus('Analysis complete');
+        setTimeout(() => { if (!cancelled) onComplete(result); }, 500);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Analysis failed.');
+          setStatus('Analysis failed');
+        }
+      }
+    };
+    run();
+    const timer = setInterval(() => setProgress(p => p < 85 ? p + 4 : p), 300);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-10 sm:py-20 text-center">
+      <div className="mb-12">
+        <div className="w-16 h-16 bg-[#fcfcfc] border border-[#f0f0f0] rounded-full flex items-center justify-center mx-auto mb-8">
+          <Loader2 size={32} className="animate-spin text-[#111]" />
+        </div>
+        <h2 className="text-[24px] sm:text-[32px] font-light tracking-tight text-[#111] leading-tight">
+          Analyzing screenshots
+        </h2>
+        <p className="text-[14px] text-[#666] mt-4">
+          Running OCR and BERT classifier on {files.length} image{files.length > 1 ? 's' : ''}
+        </p>
+        {error && (
+          <div className="mt-4 text-[13px] text-red-700 bg-red-50 border border-red-100 rounded-lg p-4 max-w-md mx-auto text-left">
+            {error}
+            <button onClick={onBack} className="ml-4 underline">Try again</button>
+          </div>
+        )}
+      </div>
+      <div className="w-full max-w-md">
+        <div className="flex mb-4 items-center justify-between">
+          <span className="text-[11px] font-medium text-[#888] uppercase tracking-wider">{status}</span>
+          <span className="text-[11px] font-medium text-[#111]">{progress}%</span>
+        </div>
+        <div className="overflow-hidden h-1.5 rounded bg-[#f5f5f5]">
+          <div style={{ width: `${progress}%` }} className="h-full bg-[#111] transition-all duration-300" />
         </div>
       </div>
     </div>

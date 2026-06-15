@@ -271,6 +271,7 @@ export default function App() {
         onComplete={handleInitialScanComplete}
         onDiscoverFlows={(websiteUrl) => scannerService.discoverFlows(websiteUrl)}
         onScan={(collected, selectedFlowIds) => scannerService.scanCollectedFlow(collected, selectedFlowIds)}
+        onScanImages={(files) => scannerService.scanImages(files)}
       />
     );
   }

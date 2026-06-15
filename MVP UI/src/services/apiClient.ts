@@ -140,6 +140,21 @@ export async function analyzeFlow(events: FlowEventInput[]): Promise<AnalyzeFlow
   return response.json();
 }
 
+export async function analyzeImages(files: File[]): Promise<AnalyzeFlowResponse> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  const response = await fetch(`${API_BASE_URL}/analyze-images`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    await handleApiError(response);
+  }
+  return response.json();
+}
+
 export async function generateReportPdf(payload: GenerateReportInput): Promise<Blob> {
   const response = await fetch(`${API_BASE_URL}/generate-report`, {
     method: "POST",
