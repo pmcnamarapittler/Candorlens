@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  (globalThis as { __CANDORLENS_API_BASE_URL__?: string }).__CANDORLENS_API_BASE_URL__ ||
+  (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL ||
   "http://localhost:8000";
 
 export interface AnalyzeTextResponse {
