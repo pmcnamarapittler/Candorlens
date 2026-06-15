@@ -28,6 +28,9 @@ opencv-python>=4.9.0
 azure-storage-blob>=12.19.0
 azure-cosmos>=4.5.0
 
+# === Multipart form uploads ===
+python-multipart>=0.0.9
+
 # === Report Generation ===
 reportlab>=4.2.0
 
