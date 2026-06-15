@@ -41,4 +41,5 @@ jobs:
               MODEL_PATH=/app/ml/models/bert_v1 \
               TAXONOMY_DIR=/app/taxonomy \
               REPORT_STORAGE_BACKEND=azure \
-              AZURE_STORAGE_CONNECTION_STRING='${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}'
+              AZURE_STORAGE_CONNECTION_STRING='${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}' \
+              FIRECRAWL_API_KEY='${{ secrets.FIRECRAWL_API_KEY }}'
