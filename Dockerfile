@@ -3,6 +3,13 @@
 
 FROM python:3.11-slim
 
+# System deps needed by pytesseract and opencv
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    libglib2.0-0 \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy dependency list and install (no .env or secrets)
@@ -14,7 +21,6 @@ COPY backend ./backend
 COPY ml ./ml
 COPY taxonomy ./taxonomy
 
-# Optional: copy only if present (model may be baked in or mounted)
 # Model expected at /app/ml/models/bert_v1; override with MODEL_PATH at runtime.
 ENV PYTHONPATH=/app
 EXPOSE 8000

@@ -32,7 +32,7 @@ app = FastAPI(
 # For dev we just open it up so Vite (localhost:517x) can talk to it.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # you can later restrict to ["http://localhost:5173", ...]
+    allow_origins=["https://lively-rock-01c9d7b10.7.azurestaticapps.net", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
